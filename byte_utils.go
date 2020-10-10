@@ -89,6 +89,20 @@ func HexToB64(src []byte) ([]byte, error) {
 	return dst, nil
 }
 
+//NCopiesOfN returns a byte slice composed of n copies of
+//the byte n. Returns an empty slice if n is out of
+//range for a byte.
+func NCopiesOfN(n int) []byte {
+	if n < 0 || n > 255 {
+		return []byte{}
+	}
+	tmp := make([]byte, n)
+	for i := range tmp {
+		tmp[i] = byte(n)
+	}
+	return tmp
+}
+
 //PadLeft pads a byte slice by adding copies of a given
 //byte to the left; returns the original slice if longer
 //than the specified length

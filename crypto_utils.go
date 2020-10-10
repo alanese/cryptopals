@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io/ioutil"
 	"math/bits"
@@ -120,6 +121,26 @@ func ScoreText(ptext []byte, targetDist [256]int) float64 {
 		panic("WHAT HAPPEN") // this should never happen
 	}
 	return score
+}
+
+//StripPKCS7Padding strips the PKCS#7 padding from
+//a byte slice. Returns a non-nil error if the text
+//length is not a multiple of the block size, or
+//if the text is not correctly PKCS padded.
+func StripPKCS7Padding(txt []byte, blockLength int) ([]byte, error) {
+	if len(txt)%blockLength != 0 {
+		return nil, errors.New("Text length not a multiple of block size")
+	}
+
+	for i := 1; i <= blockLength; i++ {
+		testEnd := NCopiesOfN(i)
+		if bytes.HasSuffix(txt, testEnd) {
+			return txt[:len(txt)-i], nil
+		}
+	}
+
+	return nil, errors.New("Text is not PKCS7-padded")
+
 }
 
 //XorBufs computes the bitwise xor of two byte slices
