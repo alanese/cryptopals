@@ -91,6 +91,27 @@ func ProfileFor(email string) string {
 	return "email=" + email + "&uid=" + uid + "&role=user"
 }
 
+//CreateEncryptedAdminProfile uses ProfileFor
+//and EncryptProfile to construct a profile
+//with the admin role. This will fail roughly
+//1 in 8 attempts, due to potentially varying lengths
+//of the uid. This requires EncryptProfile to run
+//on a system where int is 32 bits. The encrypted text is
+//padded with PKCS#7; assume an actual target system would
+//expect that and compensate for it.
+func CreateEncryptedAdminProfile(key []byte) []byte {
+	sneakyBit := "admin" + string([]byte{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11})
+	sneakyEmail := "tom@exampl" + sneakyBit + "e.com"
+	profile := ProfileFor(sneakyEmail)
+	eProfile := EncryptProfile(profile, key)
+	adminEnding := eProfile[16:32]
+	regularEmail := "tom@example.com"
+	regularEProfile := EncryptProfile(ProfileFor(regularEmail), key)
+	adminStart := regularEProfile[:48]
+	adminEProfile := append(adminStart, adminEnding...)
+	return adminEProfile
+}
+
 //EncryptProfile encrypts the given profile string using AES-ECB
 func EncryptProfile(profile string, key []byte) []byte {
 	pText := PKCSPad([]byte(profile), 16)

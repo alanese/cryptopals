@@ -14,4 +14,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 10. `DecryptAESCBC` in `crypto_utils.go` - No longer uses my own implementation of CBC; once I had it working I replaced it with Go's included implementation.
 11. Use `GenerateRandomByteSlice` in `byte_utils.go` to generate the random key and padding; use (8) to detect.
 12. `MysteryEncrypt` in `set_2_utils.go` to encrypt (using a randomly-generated key); `BreakMysteryEncrypt` in `set_2_utils.go` to break.
-13. Currently in `main.go`; to be moved somewhere else later.
+13. `CreateEncryptedAdminProfile` in `set_2_utils.go`
