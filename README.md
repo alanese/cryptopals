@@ -15,3 +15,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 11. Use `GenerateRandomByteSlice` in `byte_utils.go` to generate the random key and padding; use (8) to detect.
 12. `MysteryEncrypt` in `set_2_utils.go` to encrypt (using a randomly-generated key); `BreakMysteryEncrypt` in `set_2_utils.go` to break.
 13. `CreateEncryptedAdminProfile` in `set_2_utils.go`
+14. Currently in `main.go`; to be moved later.

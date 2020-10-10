@@ -95,7 +95,7 @@ func ProfileFor(email string) string {
 //and EncryptProfile to construct a profile
 //with the admin role. This will fail roughly
 //1 in 8 attempts, due to potentially varying lengths
-//of the uid. This requires EncryptProfile to run
+//of the uid. This may require EncryptProfile to run
 //on a system where int is 32 bits. The encrypted text is
 //padded with PKCS#7; assume an actual target system would
 //expect that and compensate for it.
