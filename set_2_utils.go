@@ -198,3 +198,19 @@ func Challenge16AdminCheck(data []byte, secretkey, iv []byte) bool {
 	ptext, _ = StripPKCS7Padding(ptext, 16)
 	return bytes.Contains(ptext, []byte(";admin=true;"))
 }
+
+//Challenge16ForgeData creates a byte slice in the format
+//output by Challenge16Func which, when decrypted, contains
+//the text ";admin=true;" using a CBC bit-flipping attack
+func Challenge16ForgeData(key, iv []byte) []byte {
+	userdata := "aaaaaaaaaaaaaaaa"
+	ctext := Challenge16Func(userdata, key, iv)
+	uBytes := []byte(userdata)
+	targetText := []byte("aaaaa;admin=true")
+	flipper, _ := XorBufs(uBytes, targetText)
+	sneakyText := ctext[:16]
+	newBlock, _ := XorBufs(flipper, ctext[16:32])
+	sneakyText = append(sneakyText, newBlock...)
+	sneakyText = append(sneakyText, ctext[32:]...)
+	return sneakyText
+}
