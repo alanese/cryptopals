@@ -17,3 +17,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 13. `CreateEncryptedAdminProfile` in `set_2_utils.go`
 14. `MysteryEncryptHard` in `set_2_utils.go` to encrypt (pass a randomly-generated key and padding); `BreakMysteryEncryptHard` in `set_2_utils.go` to break.
 15. `StripPKCS7Padding` in `crypto_utils.go`
+16. Create profile with `Challenge16Func` in `set_2_utils.go`, check for admin status with `Challenge16AdminCheck` in `set_2_utils.go`. Creating the fake encrypted admin profile currently in `main.go`, to be moved later.

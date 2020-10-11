@@ -148,7 +148,7 @@ func ProfileFor(email string) string {
 //and EncryptProfile to construct a profile
 //with the admin role. This will fail roughly
 //1 in 8 attempts, due to potentially varying lengths
-//of the uid. This may require EncryptProfile to run
+//of the uid. This requires EncryptProfile to run
 //on a system where int is 32 bits. The encrypted text is
 //padded with PKCS#7; assume an actual target system would
 //expect that and compensate for it.
@@ -176,4 +176,25 @@ func EncryptProfile(profile string, key []byte) []byte {
 func DecryptParseProfile(ctext, key []byte) (map[string]string, error) {
 	pText := string(DecryptAESECB(ctext, key))
 	return ParseKv(pText)
+}
+
+//Challenge16Func generates, pads, and encrypts a
+//data string as per challenge 16
+func Challenge16Func(userdata string, secretKey, iv []byte) []byte {
+	front := []byte("comment1=cooking%20MCs;userdata=")
+	back := []byte(";comment2=%20like%20a%20pound%20of%20bacon")
+	userdata = strings.ReplaceAll(userdata, "=", "%3D")
+	userdata = strings.ReplaceAll(userdata, ";", "%3B")
+	ptext := append(front, []byte(userdata)...)
+	ptext = append(ptext, back...)
+	ptext = PKCSPad(ptext, 16)
+	return EncryptAESCBC(ptext, secretKey, iv)
+}
+
+//Challenge16AdminCheck decrypts a byte slice
+//and checks whether it contains the text ";admin=true;"
+func Challenge16AdminCheck(data []byte, secretkey, iv []byte) bool {
+	ptext := DecryptAESCBC(data, secretkey, iv)
+	ptext, _ = StripPKCS7Padding(ptext, 16)
+	return bytes.Contains(ptext, []byte(";admin=true;"))
 }
