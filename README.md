@@ -18,3 +18,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 14. `MysteryEncryptHard` in `set_2_utils.go` to encrypt (pass a randomly-generated key and padding); `BreakMysteryEncryptHard` in `set_2_utils.go` to break.
 15. `StripPKCS7Padding` in `crypto_utils.go`
 16. Create profile with `Challenge16Func` in `set_2_utils.go`, check for admin status with `Challenge16AdminCheck` in `set_2_utils.go`. Creating the fake encrypted admin profile currently in `main.go`, to be moved later.
+17. Choose and encrypt a plaintext using `Challenge17Encrypt` in `set_3_utils.go`. Decrypt and return an error wiith `Challenge17Decrypt` in `set_3_utils.go`. Break individual blocks using `Challenge17GetLastBlock` in `set_3_utils.go` on the appropriate prefix of the ciphertext. This attack cannot decrypt the first block without manipulating (or at least knowing) the IV.
