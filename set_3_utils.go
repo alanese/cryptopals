@@ -90,16 +90,9 @@ func Challenge17GetLastBlock(cText, key, iv []byte) []byte {
 //Challenge18Decrypt decrypts the text from challenge 18.
 func Challenge18Decrypt() {
 	key := []byte("YELLOW SUBMARINE")
-	nonce := []byte{}
+	nonce := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 	cText, _ := base64.StdEncoding.DecodeString("L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==")
-	i := 0
-	keystream := []byte{}
-	for len(keystream) < len(cText) {
-		counter := make([]byte, 16)
-		counter[8] = byte(i)
-		keystream = append(keystream, GenerateCTRKeystream(key, nonce, counter)...)
-		i++
-	}
+	keystream := GenerateCTRKeystream(6, key, nonce, LittleEndianCounter)
 	keystream = keystream[:len(cText)]
 	pText, _ := XorBufs(keystream, cText)
 	fmt.Println(string(pText))

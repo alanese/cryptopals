@@ -38,12 +38,33 @@ func FreqCount(sample []byte) [256]int {
 	return counts
 }
 
-//GenerateCTRKeystream generates a CTR keystream block
+//GenerateCTRKeystreamBlock generates a CTR keystream block
 //with the given key, nonce, and counter. len(nonce) + len(counter)
 //must be the block length.
-func GenerateCTRKeystream(key, nonce, counter []byte) []byte {
+func GenerateCTRKeystreamBlock(key, nonce, counter []byte) []byte {
 	notPtext := append(nonce, counter...)
 	return EncryptAESECB(notPtext, key)
+}
+
+//GenerateCTRKeystream generates the given number of blocks
+//of an AES-CTR keystream given key, nonce, and a counter function.
+func GenerateCTRKeystream(blocks int, key, nonce []byte, counter func(int) []byte) []byte {
+	stream := make([]byte, 0, 16*blocks)
+	for i := 0; i < blocks; i++ {
+		nextBlock := GenerateCTRKeystreamBlock(key, nonce, counter(i))
+		stream = append(stream, nextBlock...)
+	}
+	return stream
+}
+
+//LittleEndianCounter is a counter function for use with
+//GenerateCTRKeystream.
+func LittleEndianCounter(i int) []byte {
+	counter := make([]byte, 8)
+	for j := 0; j < 8; j++ {
+		counter[j] = byte((i >> (j * 8)) & 0xFF)
+	}
+	return counter
 }
 
 //GuessRepeatedXorKeyLen guesses the length of the key
