@@ -38,6 +38,14 @@ func FreqCount(sample []byte) [256]int {
 	return counts
 }
 
+//GenerateCTRKeystream generates a CTR keystream block
+//with the given key, nonce, and counter. len(nonce) + len(counter)
+//must be the block length.
+func GenerateCTRKeystream(key, nonce, counter []byte) []byte {
+	notPtext := append(nonce, counter...)
+	return EncryptAESECB(notPtext, key)
+}
+
 //GuessRepeatedXorKeyLen guesses the length of the key
 //for a ciphertext encrypted with repeating-key XOR
 func GuessRepeatedXorKeyLen(ctext []byte, min, max int) int {
