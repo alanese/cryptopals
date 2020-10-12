@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"math/rand"
@@ -31,20 +32,27 @@ func Challenge17Decrypt(ctext, key, iv []byte) error {
 
 func Challenge17GetPrevByte(cText, knownBytes, key, iv []byte) byte {
 	testLength := len(knownBytes) + 1
-	head := cText[0 : len(cText)-len(knownBytes)-1]
-	tail := cText[len(cText)-len(knownBytes)-1:]
+	head := cText[0 : len(cText)-testLength-16]
+	mid := cText[len(cText)-testLength-16 : len(cText)-16]
+	tail := cText[len(cText)-16:]
 	flipper := append([]byte{byte(0)}, knownBytes...)
 	for i := 1; i < len(flipper); i++ {
 		flipper[i] = flipper[i] ^ byte(testLength)
 	}
+	testCtext := bytes.NewBuffer([]byte{})
 	for i := 0; i < 256; i++ {
 		flipper[0] = byte(i)
-		testTail, _ := XorBufs(tail, flipper)
-		testCtext := append(head, testTail...)
-		err := Challenge17Decrypt(testCtext, key, iv)
+		testMid, _ := XorBufs(mid, flipper)
+		_, _ = testCtext.Write(head)
+		_, _ = testCtext.Write(testMid)
+		_, _ = testCtext.Write(tail)
+		fmt.Printf("%X\n", testMid)
+		fmt.Printf("%X\n", mid)
+		err := Challenge17Decrypt(testCtext.Bytes(), key, iv)
 		if err == nil {
 			return byte(i) ^ byte(testLength)
 		}
+		testCtext.Reset()
 
 	}
 	panic("Found no valid bytes")
@@ -60,7 +68,6 @@ func main() {
 	if e == nil {
 		fmt.Println("Decrypt ok")
 	}
-	ctext = ctext[:32]
 	knownBytes := []byte{}
 	for i := 0; i < 16; i++ {
 		nextByte := Challenge17GetPrevByte(ctext, knownBytes, key, iv)
