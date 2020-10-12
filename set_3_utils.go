@@ -98,3 +98,26 @@ func Challenge18Decrypt() {
 	fmt.Println(string(pText))
 
 }
+
+//Challenge20 breaks fixed-nonce CTR statistically as per challenge 20
+func Challenge20(sourceFname, sampleFname string) {
+	lines, _ := LinesFromFile(sourceFname)
+	decodedLines := make([][]byte, len(lines)-1)
+	minLength := 99999999
+	for i, v := range lines[:len(lines)-1] {
+		line, _ := base64.StdEncoding.DecodeString(string(v))
+		decodedLines[i] = line
+		if len(line) < minLength {
+			minLength = len(line)
+		}
+	}
+	truncatedLines := []byte{}
+	for _, v := range decodedLines {
+		truncatedLines = append(truncatedLines, v[:minLength]...)
+	}
+
+	targetFreq, _ := FileFreqCount(sampleFname)
+
+	pText := BreakKnownLenRepeatedXor(truncatedLines, minLength, targetFreq)
+	fmt.Println(string(pText))
+}
