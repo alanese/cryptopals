@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 //Challenge17Encrypt randomly chooses one of 10 Base64-encoded
@@ -120,4 +121,31 @@ func Challenge20(sourceFname, sampleFname string) {
 
 	pText := BreakKnownLenRepeatedXor(truncatedLines, minLength, targetFreq)
 	fmt.Println(string(pText))
+}
+
+//Challenge22RandomNum creates a new Twister seeded with the current time
+//plus a random offset of 40 to 940 seconds. Returns the first random value
+//from the twister, and the random seed (only used so I can see if I did
+//the challenge correctly)
+func Challenge22RandomNum() (uint32, uint32) {
+	timeSeed := uint32(time.Now().Unix()) + uint32(rand.Intn(900)+40)
+	t := NewTwister(uint32(timeSeed))
+	return t.Next(), timeSeed
+}
+
+//Challenge22BreakSeed creates a new Mersenne Twister with
+//a random seed near the current timestamp, then uses
+//the twister's first output to deduce the seed.
+//If Go's default random Source hasn't been seeded,
+//the random seed will be the same every time.
+func Challenge22BreakSeed() {
+	rightNow := time.Now().Unix()
+	target, secretSeed := Challenge22RandomNum()
+	for i := rightNow - 30; i < rightNow+1000; i++ {
+		testTwist := NewTwister(uint32(i))
+		if testTwist.Next() == target {
+			fmt.Printf("Guessed %X\nActual  %X\n", uint32(i), secretSeed)
+			break
+		}
+	}
 }
