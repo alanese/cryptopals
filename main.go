@@ -1,5 +1,10 @@
 package main
 
+import "fmt"
+
 func main() {
-	Challenge20("20_lines.txt", "text corpus/Cryptonomicon.txt")
+	t := NewTwister(1)
+	for i := 0; i < 20; i++ {
+		fmt.Println(t.Next())
+	}
 }

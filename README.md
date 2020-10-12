@@ -22,3 +22,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 18. `Challenge18Decrypt` in `set_3_utils.go`.
 19. Not in code
 20. `Challenge20` in `set_3_utils.go`. Didn't decode perfectly with my chosen sample corpus, but enough for me to figure out what the plaintext was; perhaps a different one would have worked a bit better.
+21. The `Twister` type in `twister.go`. Create a new one with `NewTwister`, get the next value with `Next`.
