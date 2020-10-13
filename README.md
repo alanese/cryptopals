@@ -28,3 +28,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 24. Encrypt/decrypt with `EncryptMT19937Stream` in `encrypt_decrypt.go`. Remainder of the challenge in `C24RecoverKey`, `C24GenerateResetToken`, and `C24ValidateToken` in `set_3_utils.go`
 25. Edit function at `C25Edit` in `set_4.go`, break using `C25BreakEdit` in `set_4.go`.
 26. Create profile with `Challenge26Func` in `set_4.go`, check for admin status with `Challenge26AdminCheck` in `set_4.go`. Create the fake admin profile with `Challenge26ForgeData` in `set_4.go`. This is almost entirely copy/pasted from challenge 16; the only required modifications are changing the encryption/decryption function used and changing some indices in `Challenge26ForgeData` to alter a different block.
+27. ASCII-verify with `Challenge27VerifyDecrypt` in `set_4.go`; extract the key with `Challenge27ExtractKey` in `set_4.go`

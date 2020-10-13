@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 )
 
@@ -65,4 +66,34 @@ func Challenge26ForgeData(key []byte) []byte {
 	sneakyText = append(sneakyText, newBlock...)
 	sneakyText = append(sneakyText, ctext[48:]...)
 	return sneakyText
+}
+
+//Challenge27VerifyDecrypt attempts to decrypt the ciphertext using the key
+//as the IV; it returns the decrypted plaintext and a non-nil error if the
+//plaintext contains any non-ASCII bytes, and returns two nils otherwise
+func Challenge27VerifyDecrypt(ctext, key []byte) ([]byte, error) {
+	pText := DecryptAESCBC(ctext, key, key)
+	for _, v := range pText {
+		if v > 127 {
+			return pText, errors.New("Invalid character")
+		}
+	}
+	return nil, nil
+}
+
+//Challenge27ExtractKey uses Challenge27VerifyDecrypt to determine
+//the secret key
+func Challenge27ExtractKey(secretKey []byte) []byte {
+	pText := make([]byte, 48)
+	pText[0] = byte(128)
+	cText := EncryptAESCBC(pText, secretKey, secretKey)
+	newCText := bytes.NewBuffer(cText[:16])
+	newCText.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0})
+	newCText.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0}) //write 16 zero bytes
+	newCText.Write(cText[:16])
+	extractedPtext, _ := Challenge27VerifyDecrypt(newCText.Bytes(), secretKey)
+	p1 := extractedPtext[0:16]
+	p3 := extractedPtext[32:48]
+	extractedKey, _ := XorBufs(p1, p3)
+	return extractedKey
 }
