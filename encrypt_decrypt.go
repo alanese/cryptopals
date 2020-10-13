@@ -97,6 +97,28 @@ func EncryptAESECB(ptext []byte, key []byte) []byte {
 	return cipherText.Bytes()
 }
 
+//EncryptAESCTRBlock encrypts a single 16-byte block of text using AES-CTR
+//blockNum is the zero-indexed number of the block in the stream (i.e. 3 to
+//use the fourth block in the keystream)
+func EncryptAESCTRBlock(ptext, key, nonce []byte, blockNum int) []byte {
+	keyBlock := GenerateCTRKeystreamBlock(key, nonce, LittleEndianCounter(blockNum))
+	c, _ := XorBufs(keyBlock, ptext)
+	return c
+}
+
+//EncryptAESCTR encrypts a given plaintext using AES-CTR with the given key
+//and fixed nonce. Uses LittleEndianCounter as the counter function.
+func EncryptAESCTR(ptext, key, nonce []byte) []byte {
+	ctext := make([]byte, 0, len(ptext))
+	for i := 0; i*16 < len(ptext); i++ {
+		ptextBlock := ptext[16*i : 16*(i+1)]
+		ctextBlock := EncryptAESCTRBlock(ptextBlock, key, nonce, i)
+		ctext = append(ctext, ctextBlock...)
+	}
+
+	return ctext
+}
+
 //EncryptMT19937Stream encrypts the given bytes using
 //a mersenne twister seeded with the key as a keystream
 //The bytes of each uint32 value drawn from the twister
