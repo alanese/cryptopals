@@ -97,6 +97,29 @@ func EncryptAESECB(ptext []byte, key []byte) []byte {
 	return cipherText.Bytes()
 }
 
+//EncryptMT19937Stream encrypts the given bytes using
+//a mersenne twister seeded with the key as a keystream
+//The bytes of each uint32 value drawn from the twister
+//are used beginning with the least significant.
+func EncryptMT19937Stream(ptext []byte, key uint32) []byte {
+	t := NewTwister(key)
+	ctext := make([]byte, len(ptext))
+	bitmask := uint32(0x000000FF)
+	nextKeyChunk := uint32(0)
+	for i, b := range ptext {
+		byteInChunk := i % 4
+		if byteInChunk == 0 {
+			nextKeyChunk = t.Next()
+		}
+
+		keyByte := byte((nextKeyChunk >> (8 * byteInChunk)) & bitmask)
+		ctext[i] = b ^ keyByte
+
+	}
+
+	return ctext
+}
+
 //XorEncrypt encrypts a plaintext byte slice with repeating-key XOR
 func XorEncrypt(plaintext, key []byte) []byte {
 	ct := make([]byte, len(plaintext))

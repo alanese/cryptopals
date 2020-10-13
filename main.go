@@ -8,12 +8,9 @@ import (
 
 func main() {
 	rand.Seed(time.Now().Unix())
-	secretSeed := rand.Uint32()
-
-	t := NewTwister(secretSeed)
-
-	cloned := *CloneTwister(&t)
-
-	fmt.Printf("Original %X\n   Clone %X\n", t.Next(), cloned.Next())
+	token := C24GenerateResetToken("me")
+	fmt.Println(C24ValidateToken(token))
+	time.Sleep(3 * time.Second)
+	fmt.Println(C24ValidateToken(token))
 
 }

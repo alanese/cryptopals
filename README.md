@@ -25,3 +25,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 21. The `Twister` type in `twister.go`. Create a new one with `NewTwister`, get the next value with `Next`.
 22. `Challenge22RandomNum` in `set_3_utils.go` to create the twister and get the first value, `Challenge22BreakSeed` in `set_3_utils.go` to find the seed.
 23. `CloneTwister` in `set_3_utils.go`
+24. Encrypt/decrypt with `EncryptMT19937Stream` in `encrypt_decrypt.go`. Remainder of the challenge in `C24RecoverKey`, `C24GenerateResetToken`, and `C24ValidateToken` in `set_3_utils.go`

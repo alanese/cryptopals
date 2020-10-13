@@ -213,3 +213,54 @@ func CloneTwister(t *Twister) *Twister {
 	cloned.x = state
 	return &cloned
 }
+
+//C24RecoverKey recovers a (16-bit) key used to encrypt
+//a random prefix followed by a known plaintext
+func C24RecoverKey(key uint32) uint32 {
+	padLength := rand.Intn(5) + 5
+	pad := GenerateRandomByteSlice(padLength)
+	knownText := []byte("AAAAAAAAAAAAAA")
+	pText := append(pad, knownText...)
+	cText := EncryptMT19937Stream(pText, key)
+	knownStart := len(pText) - len(knownText)
+
+	testPtext := make([]byte, len(cText))
+	for i := range testPtext {
+		testPtext[i] = byte('A')
+	}
+
+	for i := 0; i < (1 << 16); i++ {
+		testCtext := EncryptMT19937Stream(testPtext, uint32(i))
+		if bytes.Equal(cText[knownStart:], testCtext[knownStart:]) {
+			return uint32(i)
+		}
+	}
+
+	return 0
+
+}
+
+//C24GenerateResetToken generates and encrypts a "reset token"
+//using the given username. Encrypts using the MT19937 stream
+//cipher seeded with the current unix timestamp
+func C24GenerateResetToken(uname string) []byte {
+	head := "reset_password?uname=" + uname
+	tokenBytes := []byte(head)
+	seed := uint32(time.Now().Unix())
+
+	return EncryptMT19937Stream(tokenBytes, seed)
+}
+
+//C24ValidateToken checks whether the given bytes are a valid
+//"reset token" as created by C24GenerateResetToken and encrypted
+//with the current Unix timestamp
+func C24ValidateToken(token []byte) bool {
+	if len(token) < 21 {
+		return false
+	}
+	seed := uint32(time.Now().Unix())
+	decryptedToken := EncryptMT19937Stream(token, seed)
+	testHead := []byte("reset_password?uname=")
+	return bytes.Equal(testHead, decryptedToken[:21])
+
+}
