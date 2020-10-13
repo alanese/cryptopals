@@ -129,3 +129,9 @@ func LinesFromFile(fname string) ([][]byte, error) {
 	lines := bytes.Split(f, []byte{byte(0x0A)}) //0x0A is an ASCII line feed
 	return lines, nil
 }
+
+//RightOnes gets a uint32 where the rightmost n bits
+//are 1 and the rest are 0.
+func RightOnes(n int) uint32 {
+	return (uint32(1) << n) - 1
+}

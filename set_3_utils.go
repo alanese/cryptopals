@@ -149,3 +149,67 @@ func Challenge22BreakSeed() {
 		}
 	}
 }
+
+//C23UntemperRight11 inverts the tempering transformation
+//y ^= (y>>11)
+func C23UntemperRight11(x uint32) uint32 {
+	top := x >> 21
+	mid := ((x & 0x001FFC00) >> 10) ^ top
+	bottom := (x & 0x000003FF) ^ (mid >> 1)
+	return (top << 21) | (mid << 10) | bottom
+}
+
+//C23UntemperRight18 inverts the tempering transformation
+//y ^= (y >> 18)
+func C23UntemperRight18(x uint32) uint32 {
+	top := x >> 14
+	bottom := (x & 0x00003FFF) ^ (top >> 4)
+	return (top << 14) | bottom
+}
+
+//C23UntemperLeft inverts the tempering transformation
+//y ^= ((y << shift) & magicNum) for uint32's
+func C23UntemperLeft(x, magicNum uint32, shift int) uint32 {
+	chunks := []uint32{}
+	bitmask := RightOnes(shift)
+	tmp := x & bitmask
+	chunks = append(chunks, tmp)
+	x >>= shift
+	magicNum >>= shift
+	i := shift
+	for i < 32 {
+		tmp = (x ^ (chunks[len(chunks)-1] & magicNum)) & bitmask
+		chunks = append(chunks, tmp)
+		x >>= shift
+		magicNum >>= shift
+		i += shift
+	}
+	untempered := uint32(0)
+	for i, v := range chunks {
+		untempered |= (v << (i * shift))
+	}
+	return untempered
+}
+
+//TwisterUntemper inverts the tempering transformation
+//used in the Mersenne twister
+func TwisterUntemper(x uint32) uint32 {
+	x = C23UntemperRight18(x)
+	x = C23UntemperLeft(x, 0xEFC60000, 15)
+	x = C23UntemperLeft(x, 0x9D2C5680, 7)
+	x = C23UntemperRight11(x)
+	return x
+}
+
+//CloneTwister creates a clone of the given twister.
+//Assumes t.index is 0 or 624. Consumes 624 values from t.
+func CloneTwister(t *Twister) *Twister {
+	state := [624]uint32{}
+	for i := range state {
+		r := t.Next()
+		state[i] = TwisterUntemper(r)
+	}
+	cloned := NewTwister(1)
+	cloned.x = state
+	return &cloned
+}
