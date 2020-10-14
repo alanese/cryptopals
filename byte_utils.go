@@ -8,6 +8,41 @@ import (
 	"math/rand"
 )
 
+//AsBytes32 converts a uint32 into a slice of
+//its 4 bytes in big-endian order
+func AsBytes32(x uint32) []byte {
+	b := make([]byte, 4)
+	for i := 3; i >= 0; i-- {
+		b[i] = byte(x & 0x000000FF)
+		x >>= 8
+	}
+	return b
+}
+
+//AsBytes64 converts a uint64 into a slice of
+//its 8 bytes in big-endian order
+func AsBytes64(x uint64) []byte {
+	b := make([]byte, 8)
+	for i := 7; i >= 0; i-- {
+		b[i] = byte(x & 0xFF)
+		x >>= 8
+	}
+	return b
+}
+
+//FromBytes32 converts a aslice of bytes into
+//its equivalent (big-endian) uint32. If the
+//slice is more than 4 bytes, the last four will
+//effectively be used
+func FromBytes32(b []byte) uint32 {
+	var x uint32 = 0
+	for _, v := range b {
+		x <<= 8
+		x |= uint32(v)
+	}
+	return x
+}
+
 //Chunkify breakes down a bite slice into slices of length n.
 //The last slice may be shorter if len(b) is not a multiple
 //of n.
