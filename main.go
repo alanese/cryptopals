@@ -15,10 +15,11 @@ func main() {
 
 	startMsg := []byte("comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon")
 
-	digest := SHA1MAC(startMsg, secret)
+	digest := MD4Hash(append(secret, startMsg...))
 
-	forgedMsg, forgedHash := C29ForgeMAC(secret, startMsg, digest)
-	targetHash := SHA1MAC(forgedMsg, secret)
+	forgedMsg, forgedHash := C30ForgeMAC(secret, startMsg, digest)
+	targetHash := MD4Hash(append(secret, forgedMsg...))
 	fmt.Printf("Forged message %X\n", forgedMsg)
 	fmt.Printf("Actual hash %X\nTarget hash %X\n", forgedHash, targetHash)
+
 }

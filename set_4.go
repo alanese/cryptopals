@@ -149,3 +149,45 @@ func C29ForgeMAC(key, message, origDigest []byte) (forgedMsg, forgedHash []byte)
 	}
 	return nil, nil
 }
+
+//C30GluePadding computes the padding bytes added
+//to a message of given length in hashing with MD4
+func C30GluePadding(length int) []byte {
+	m := []byte{0x80}
+	for (length+len(m))%64 != 56 {
+		m = append(m, 0x00)
+	}
+	ml := AsBytes64(uint64(length * 8))
+
+	//append bytes in little-endian order
+	m = append(m, ml[7], ml[6], ml[5], ml[4], ml[3], ml[2], ml[1], ml[0])
+	return m
+}
+
+//C30ValidateMAC checks if the digest is the MD4 hash
+//of key || message
+func C30ValidateMAC(key, message, digest []byte) bool {
+	target := MD4Hash(append(key, message...))
+	return bytes.Equal(target, digest)
+}
+
+//C30ForgeMAC forges a MAC/digest pair as per challenge 30
+func C30ForgeMAC(key, message, origDigest []byte) (forgedMsg, forgedHash []byte) {
+	addedMsg := []byte(";admin=true")
+	secretMsg := append(key, message...)
+	secretMsg = append(secretMsg, C30GluePadding(len(secretMsg))...)
+	secretMsg = append(secretMsg, addedMsg...)
+	targetHash := MD4Hash(secretMsg)
+
+	msgBuffer := bytes.NewBuffer([]byte{})
+	for i := 0; i < 15; i++ {
+		msgBuffer.Write(message)
+		msgBuffer.Write(C30GluePadding(len(message) + i))
+		msgBuffer.Write(addedMsg)
+		if C30ValidateMAC(key, msgBuffer.Bytes(), targetHash) {
+			return msgBuffer.Bytes(), targetHash
+		}
+		msgBuffer.Reset()
+	}
+	return nil, nil
+}

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"io"
 	"math/bits"
+
+	"golang.org/x/crypto/md4"
 )
 
 //SHA1HashPadding computes the padding added to msg
@@ -32,10 +35,6 @@ func SHA1HashExtend(msg []byte, h0, h1, h2, h3, h4 uint32) []byte {
 	//ml := uint64(len(msg))
 	m := make([]byte, 0, len(msg))
 	m = append(m, msg...)
-
-	//pad
-	//padding := SHA1HashPadding(m)
-	//m = append(m, padding...)
 
 	//break into 512-bit = 64-byte chunks
 	chunks := Chunkify(m, 64)
@@ -103,4 +102,11 @@ func SHA1HashExtend(msg []byte, h0, h1, h2, h3, h4 uint32) []byte {
 //SHA1MAC computes a secret-prefix MAC using SHA-1
 func SHA1MAC(msg, key []byte) []byte {
 	return SHA1Hash(append(key, msg...))
+}
+
+//MD4Hash computes the MD4 hash of the given message
+func MD4Hash(msg []byte) []byte {
+	m := md4.New()
+	io.WriteString(m, string(msg))
+	return m.Sum(nil)
 }
