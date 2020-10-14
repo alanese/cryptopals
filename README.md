@@ -30,3 +30,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 26. Create profile with `Challenge26Func` in `set_4.go`, check for admin status with `Challenge26AdminCheck` in `set_4.go`. Create the fake admin profile with `Challenge26ForgeData` in `set_4.go`. This is almost entirely copy/pasted from challenge 16; the only required modifications are changing the encryption/decryption function used and changing some indices in `Challenge26ForgeData` to alter a different block.
 27. ASCII-verify with `Challenge27VerifyDecrypt` in `set_4.go`; extract the key with `Challenge27ExtractKey` in `set_4.go`
 28. Hash in `SHA1Hash` in `hash.go`, MAC in `SHA1MAC` in `hash.go`
+29. SHA-1 hash from a given starting state in `SHA1HashExtend` in `hash.go`. Validate a MAC with `C29ValidateMac` in `set_4.go`; forge a MAC with `c29ForgeMAC` in `set_4.go`.

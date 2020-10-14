@@ -4,27 +4,38 @@ import (
 	"math/bits"
 )
 
+//SHA1HashPadding computes the padding added to msg
+//while SHA-1 hashing it.
+func SHA1HashPadding(msg []byte) []byte {
+	padding := make([]byte, 0, 64)
+	padding = append(padding, 0x80)
+
+	for (len(padding)+len(msg))%64 != 56 {
+		padding = append(padding, byte(0))
+	}
+	ml := uint64(len(msg) * 8)
+	padding = append(padding, AsBytes64(ml)...)
+	return padding
+}
+
 //SHA1Hash computes the SHA-1 digest of the given message
 func SHA1Hash(msg []byte) []byte {
-	//setup initial values
-	var h0 uint32 = 0x67452301
-	var h1 uint32 = 0xEFCDAB89
-	var h2 uint32 = 0x98BADCFE
-	var h3 uint32 = 0x10325476
-	var h4 uint32 = 0xC3D2E1F0
+	padding := SHA1HashPadding(msg)
+	return SHA1HashExtend(append(msg, padding...), 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0)
+}
 
+//SHA1HashExtend computes the SHA-1 digest of the given message,
+//starting from the given state. Assumes the given msg is already
+//correctly padded
+func SHA1HashExtend(msg []byte, h0, h1, h2, h3, h4 uint32) []byte {
 	//copy message
-	ml := uint64(len(msg))
-	m := make([]byte, len(msg))
+	//ml := uint64(len(msg))
+	m := make([]byte, 0, len(msg))
 	m = append(m, msg...)
 
 	//pad
-	m = append(m, byte(0x80))
-
-	for (len(m)*8)%512 != 448 {
-		m = append(m, byte(0))
-	}
-	m = append(m, AsBytes64(ml)...)
+	//padding := SHA1HashPadding(m)
+	//m = append(m, padding...)
 
 	//break into 512-bit = 64-byte chunks
 	chunks := Chunkify(m, 64)

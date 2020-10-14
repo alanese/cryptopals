@@ -97,3 +97,55 @@ func Challenge27ExtractKey(secretKey []byte) []byte {
 	extractedKey, _ := XorBufs(p1, p3)
 	return extractedKey
 }
+
+//C29ValidateMAC tests whether the given digest is the SHA-1
+//hash of key || message. An attacker exploiting this function
+//doesn't actually know key; it's passed as a parameter so I don't
+//have to maintain global variables.
+func C29ValidateMAC(key, message, digest []byte) bool {
+	testDigest := SHA1Hash(append(key, message...))
+	return bytes.Equal(digest, testDigest)
+}
+
+//C29GluePadding generates the appropriate SHA-1 padding for
+//a message of the given length
+func C29GluePadding(length int) []byte {
+	pad := make([]byte, 0)
+	pad = append(pad, 0x80)
+	for (length+len(pad))%64 != 56 {
+		pad = append(pad, 0)
+	}
+	ml := uint64(length * 8)
+	pad = append(pad, AsBytes64(ml)...)
+	return pad
+}
+
+//C29ForgeMAC generates a message/digest pair that will be validated
+//under a secret-prefix SHA-1 MAC. The generated message is the original
+//message, plus some padding, plus the text ";admin=true"
+//Assumes the length of the original message plus the secret key is
+//from 64 to 119 bytes
+func C29ForgeMAC(key, message, origDigest []byte) (forgedMsg, forgedHash []byte) {
+	addedMsg := []byte(";admin=true")
+	pad := C29GluePadding(139)
+	paddedAddedMsg := append(addedMsg, pad...)
+	h0 := FromBytes32(origDigest[0:4])
+	h1 := FromBytes32(origDigest[4:8])
+	h2 := FromBytes32(origDigest[8:12])
+	h3 := FromBytes32(origDigest[12:16])
+	h4 := FromBytes32(origDigest[16:20])
+	targetHash := SHA1HashExtend(paddedAddedMsg, h0, h1, h2, h3, h4)
+
+	msgBuffer := bytes.NewBuffer([]byte{})
+	for i := 0; i < 33; i++ {
+		msgBuffer.Write(message)
+		msgBuffer.Write(C29GluePadding(len(message) + i))
+		msgBuffer.Write(addedMsg)
+		if C29ValidateMAC(key, msgBuffer.Bytes(), targetHash) {
+			return msgBuffer.Bytes(), targetHash
+		}
+		msgBuffer.Reset()
+
+	}
+	return nil, nil
+}
