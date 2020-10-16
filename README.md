@@ -32,5 +32,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 28. Hash in `SHA1Hash` in `hash.go`, MAC in `SHA1MAC` in `hash.go`
 29. SHA-1 hash from a given starting state in `SHA1HashExtend` in `hash.go`. Validate a MAC with `C29ValidateMac` in `set_4.go`; forge a MAC with `c29ForgeMAC` in `set_4.go`.
 30. MD4 hash in `MD4Hash` in `hash.go` (using the built-in implementation in `golang.org/x/crypto/md4`); validate a MAC with `C30ValidateMAC` in `set_4.go` and forge a message with `C30ForgeMAC` in `set_4.go`
-31. Server currently in `server/server_main.go`. HMAC-breaking currently in `main.go`. Some of the server code is duplicated in `set_4.go`.
-32. My original challenge 31 code started breaking at a 5-ms delay. Added some code to allow backtracking; now tested and working down to 2 ms. I believe it would work at 1 ms as well; anything lower would require rewriting the timing code for more precision.
+31. Server currently in `server/server_main.go`. HMAC-breaking with `C31BreakHash` in `set_4.go`. Some code in `server/server_main.go` is duplicated elsewhere. The current revision of the code is the updated version to handle smaller delays per challenge 32.
+32. My original challenge 31 code started breaking at a 5-ms delay. Added some code to allow backtracking; now tested and working down to 2 ms. It could work at 1 ms as well, though not as reliably; anything lower would require rewriting the timing code for more precision.

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -229,10 +229,106 @@ func C31VerifyHMAC(rw http.ResponseWriter, rq *http.Request) {
 	}
 }
 
-//C31StartServer starts an HMAC-verifying server per challenge 31
-//Must be run in a separate program from the client, or as
-//a goroutine (which is much less consistent)
-func C31StartServer() {
-	http.HandleFunc("/", C31VerifyHMAC)
-	log.Fatal(http.ListenAndServe("localhost:8080", nil))
+//C31GetOverheadMS sends intentionally bad HMAC
+//verification requests to determine the time taken in milliseconds
+//by non-comparison parts of verification (e.g. network travel times)
+func C31GetOverheadMS(urlFormat string) int {
+	attempts := 5
+	fakeHmac := make([]byte, 20)
+	testURL := fmt.Sprintf(urlFormat, "a", fakeHmac)
+
+	overheadSum0 := 0
+	for i := 0; i < attempts; i++ {
+		t, r, _ := TimedGet(testURL)
+		overheadSum0 += t
+		r.Body.Close()
+	}
+
+	fakeHmac[0] = 0x01
+	testURL = fmt.Sprintf(urlFormat, "a", fakeHmac)
+	overheadSum1 := 0
+	for i := 0; i < attempts; i++ {
+		t, r, _ := TimedGet(testURL)
+		overheadSum1 += t
+		r.Body.Close()
+	}
+
+	if overheadSum0 > overheadSum1 {
+		return overheadSum1 / attempts
+	}
+	return overheadSum0 / attempts
+
+}
+
+//C31GetByteDelay estimates the per-byte compare time
+//for the insecure comparison in challenges 31/32
+func C31GetByteDelay(urlformat string, overhead int, verbose bool) int {
+	attemptsPerValue := 5
+	testHmac := make([]byte, 20)
+
+	maxTime := 0
+
+	for i := 0; i < 256; i++ {
+		if verbose {
+			fmt.Printf("Delay testing: 0x%02X\n", i)
+		}
+		totalTime := 0
+		testHmac[0] = byte(i)
+		testURL := fmt.Sprintf(urlformat, "a", testHmac)
+		for j := 0; j < attemptsPerValue; j++ {
+			t, r, _ := TimedGet(testURL)
+			r.Body.Close()
+			totalTime += (t - overhead)
+		}
+		if totalTime > maxTime {
+			maxTime = totalTime
+		}
+	}
+	return maxTime / attemptsPerValue
+}
+
+//C31BreakHash finds the HMAC-SHA1 signature for the given message
+//expected by a server. urlBase should be a printf-style format string
+//with %v for the message and %X for the signature. The server should
+//return a 200 OK response if the signature is valid and a 500 error response if not.
+//Tested with a server running on localhost with an artificial delay of 2 ms per byte
+//compared. The verbose parameter determines whether status messages are printed to console.
+//Panics if the server returns any response other than a 200 OK or a 500
+func C31BreakHash(urlBase, msg string, verbose bool) []byte {
+	hmac := make([]byte, 20)
+	overheadMs := C31GetOverheadMS(urlBase)
+	if verbose {
+		fmt.Printf("Overhead %v ms\n", overheadMs)
+	}
+	byteDelay := C31GetByteDelay(urlBase, overheadMs, verbose)
+	if verbose {
+		fmt.Printf("Estimated byte delay %v ms\n", byteDelay)
+	}
+	i := 0
+	for {
+		hmac[i]++
+		queryURL := fmt.Sprintf(urlBase, msg, hmac)
+		if verbose {
+			fmt.Printf("Testing hash %X\n", hmac)
+		}
+		msDelay, r, _ := TimedGet(queryURL)
+		if r.StatusCode == http.StatusOK {
+			return hmac
+		}
+		if r.StatusCode != http.StatusInternalServerError {
+			panic("Unnexpected Http status " + r.Status)
+		}
+
+		msDelay -= overheadMs
+		delayBlocks := msDelay / byteDelay
+
+		if verbose {
+			fmt.Printf("%v ms delay, %v bytes likely correct\n", msDelay, delayBlocks)
+		}
+
+		i = delayBlocks
+		if i >= len(hmac) {
+			i = len(hmac) - 1
+		}
+	}
 }

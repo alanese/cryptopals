@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/bits"
+	"net/http"
+	"time"
 )
 
 //DetectAESECB attempts to detect whether a byte slice
@@ -170,6 +172,17 @@ func StripPKCS7Padding(txt []byte, blockLength int) ([]byte, error) {
 
 	return nil, errors.New("Text is not PKCS7-padded")
 
+}
+
+//TimedGet issues a GET request to the specified URL, and returns
+//a response and error, along with the number of milliseconds taken.
+//The r and err return values are passed through directly from http.Get()
+func TimedGet(url string) (t int, r *http.Response, err error) {
+	startTime := time.Now().UnixNano()
+	r, err = http.Get(url)
+	stopTime := time.Now().UnixNano()
+	t = int((stopTime - startTime) / 1000000)
+	return
 }
 
 //XorBufs computes the bitwise xor of two byte slices

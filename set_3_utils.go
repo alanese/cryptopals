@@ -134,7 +134,7 @@ func Challenge22RandomNum() (uint32, uint32) {
 }
 
 //Challenge22BreakSeed creates a new Mersenne Twister with
-//a random seed near the current timestamp, then uses
+//a random seed near the current UNIX timestamp, then uses
 //the twister's first output to deduce the seed.
 //If Go's default random Source hasn't been seeded,
 //the random seed will be the same every time.
@@ -152,6 +152,7 @@ func Challenge22BreakSeed() {
 
 //C23UntemperRight11 inverts the tempering transformation
 //y ^= (y>>11)
+//TODO: generalize to variable shift distances
 func C23UntemperRight11(x uint32) uint32 {
 	top := x >> 21
 	mid := ((x & 0x001FFC00) >> 10) ^ top
@@ -161,6 +162,7 @@ func C23UntemperRight11(x uint32) uint32 {
 
 //C23UntemperRight18 inverts the tempering transformation
 //y ^= (y >> 18)
+//TODO: generalize to variable shift distances
 func C23UntemperRight18(x uint32) uint32 {
 	top := x >> 14
 	bottom := (x & 0x00003FFF) ^ (top >> 4)
