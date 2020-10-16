@@ -58,6 +58,7 @@ func C31GetByteDelay(urlformat string, overhead int) int {
 	maxTime := 0
 
 	for i := 0; i < 256; i++ {
+		fmt.Printf("Delay testing: 0x%02X\n", i)
 		totalTime := 0
 		testHmac[0] = byte(i)
 		testURL := fmt.Sprintf(urlformat, "a", testHmac)
@@ -80,7 +81,7 @@ func main() {
 	m := []byte("hahatryandstopme")
 	secret := []byte("THIS IS A SECRET DON'T TELL ANYONE")
 	targetHmac := HMACSHA1(secret, m)
-	fmt.Printf("%X\n", targetHmac)
+
 	hmac := make([]byte, 20)
 	queryURLBase := "http://localhost:8080/?file=%v&signature=%X"
 
@@ -90,29 +91,33 @@ func main() {
 	byteDelay := C31GetByteDelay(queryURLBase, overheadMs)
 	fmt.Printf("Computed byte delay %v ms", byteDelay)
 
-	for i := range hmac {
-		for j := 0; j < 256; j++ {
-			hmac[i] = byte(j)
-			fmt.Printf("%X\n", hmac)
-			queryURL := fmt.Sprintf(queryURLBase, string(m), hmac)
-			msDelay, r, _ := TimedGet(queryURL)
-			if r.StatusCode == http.StatusOK {
-				r.Body.Close()
-				break
-			}
-			if r.StatusCode != http.StatusInternalServerError {
-				panic("Unexpected Http status " + strconv.Itoa(r.StatusCode))
-			}
-
-			msDelay -= overheadMs
-			fmt.Printf("%v ms delay\n", msDelay)
-			delayBlocks := int((float64(msDelay) / float64(byteDelay)) + 0.5)
-			fmt.Printf("%v blocks\n", delayBlocks)
+	i := 0
+	status := 0
+	for status != http.StatusOK {
+		hmac[i]++
+		fmt.Printf("%X\n", hmac)
+		queryURL := fmt.Sprintf(queryURLBase, string(m), hmac)
+		msDelay, r, _ := TimedGet(queryURL)
+		if r.StatusCode == http.StatusOK {
 			r.Body.Close()
-			if delayBlocks > i {
-				break
-			}
+			break
 		}
+		if r.StatusCode != http.StatusInternalServerError {
+			panic("Unexpected Http status " + strconv.Itoa(r.StatusCode))
+		}
+
+		msDelay -= overheadMs
+		fmt.Printf("%v ms delay\n", msDelay)
+		//delayBlocks := int((float64(msDelay) / float64(byteDelay)) + 0.5)
+		delayBlocks := msDelay / byteDelay
+		fmt.Printf("%v bytes likely correct\n", delayBlocks)
+		status = r.StatusCode
+		r.Body.Close()
+		i = delayBlocks
+		if i >= 20 {
+			i = 19
+		}
+
 	}
 
 	fmt.Printf(" Actual HMAC %X\nGuessed HMAC %X\n", targetHmac, hmac)

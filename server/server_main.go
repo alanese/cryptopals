@@ -21,7 +21,7 @@ func InsecureCompare(b1, b2 []byte) bool {
 		if b1[i] != b2[i] {
 			return false
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 	}
 
 	return true
