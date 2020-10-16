@@ -110,3 +110,30 @@ func MD4Hash(msg []byte) []byte {
 	io.WriteString(m, string(msg))
 	return m.Sum(nil)
 }
+
+//HMACSHA1 computes an SHA-1 based HMAC with the given
+//message and secret
+func HMACSHA1(secret, msg []byte) []byte {
+	var k []byte
+	if len(secret) > 64 {
+		k = SHA1Hash(secret)
+	} else {
+		k = make([]byte, 64)
+		for i, v := range secret {
+			k[i] = v
+		}
+	}
+	opad := make([]byte, 64)
+	ipad := make([]byte, 64)
+	for i := range opad {
+		opad[i] = 0x5C
+		ipad[i] = 0x36
+	}
+
+	iKey, _ := XorBufs(k, ipad)
+	oKey, _ := XorBufs(k, opad)
+
+	m := SHA1Hash(append(iKey, msg...))
+	return SHA1Hash(append(oKey, m...))
+
+}

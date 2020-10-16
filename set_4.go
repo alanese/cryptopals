@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
+	"log"
+	"net/http"
 	"strings"
+	"time"
 )
 
 //C25Edit decrypts the ciphertext (using AES-CTR with the given key),
@@ -190,4 +194,45 @@ func C30ForgeMAC(key, message, origDigest []byte) (forgedMsg, forgedHash []byte)
 		msgBuffer.Reset()
 	}
 	return nil, nil
+}
+
+//InsecureCompare determines whether two byte slices
+//contain the same elements with early exit, with an
+//artificially-emphasized timing leak
+func InsecureCompare(b1, b2 []byte) bool {
+	if len(b1) != len(b2) {
+		return false
+	}
+	for i := range b1 {
+		if b1[i] != b2[i] {
+			return false
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return true
+}
+
+//C31VerifyHMAC verifies that the secret-prefix HMAC of
+//the file query parameter equals the signature parameter
+func C31VerifyHMAC(rw http.ResponseWriter, rq *http.Request) {
+	secret := []byte("THIS IS A SECRET DON'T TELL ANYONE")
+	file := []byte(rq.URL.Query().Get("file"))
+	hmac, _ := hex.DecodeString(rq.URL.Query().Get("signature"))
+	hmac = PadLeft(hmac, 0, 20)
+	fileHmac := HMACSHA1(secret, file)
+	if InsecureCompare(fileHmac, hmac) {
+		rw.Write([]byte("OK"))
+	} else {
+		rw.WriteHeader(http.StatusInternalServerError)
+		rw.Write([]byte("Invalid hash"))
+	}
+}
+
+//C31StartServer starts an HMAC-verifying server per challenge 31
+//Must be run in a separate program from the client, or as
+//a goroutine (which is much less consistent)
+func C31StartServer() {
+	http.HandleFunc("/", C31VerifyHMAC)
+	log.Fatal(http.ListenAndServe("localhost:8080", nil))
 }
