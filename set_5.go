@@ -35,33 +35,57 @@ func ModExp(a, x, m *big.Int) (r *big.Int) {
 
 }
 
-//GenerateNISTDHPublicKey generates a Diffie-Hellman
+//GenerateDHPublicKey generates a diffie-hellman public
+//key from the given private key, prime, and generator
+func GenerateDHPublicKey(a, p, g *big.Int) *big.Int {
+	return ModExp(g, a, p)
+}
+
+//GenerateNISTDHPublicKey1536 generates a Diffie-Hellman
 //public key A from a private key a using the 1536-bit
 //MODP group defined in RFC-3526 section 2
-func GenerateNISTDHPublicKey(a *big.Int) *big.Int {
+func GenerateNISTDHPublicKey1536(a *big.Int) *big.Int {
 	p := big.NewInt(0)
 	p.SetString(groupSizeString, 16)
 
 	g := big.NewInt(2)
-	return ModExp(g, a, p)
+	return GenerateDHPublicKey(a, p, g)
 }
 
-//GenerateNISTDHPrivateKey generates a random private key
+//GenerateDHPrivateKey generates a random private key
+//suitable for use with finite-field Diffie-Hellman
+//with the given prime p. This implementation does NOT use
+//a cryptographically-secure RNG, so don't use it for anything
+//real
+func GenerateDHPrivateKey(rnd *rand.Rand, p *big.Int) *big.Int {
+	q := big.NewInt(0).SetBytes(p.Bytes())
+	q.Sub(q, big.NewInt(1))
+	q.Div(q, big.NewInt(2))
+
+	q.Sub(q, big.NewInt(1))
+	q.Rand(rnd, q)
+	q.Add(q, big.NewInt(1))
+
+	return q
+}
+
+//GenerateNISTDHPrivateKey1536 generates a random private key
 //suitable for use with the 1536-bit MODP group defined in
 //RFC-3526 section 2. This implementation does NOT use a
 //cryptographically-secure RNG, so don't use it for anything real.
-func GenerateNISTDHPrivateKey(rnd *rand.Rand) *big.Int {
-	q := big.NewInt(0)
-	q.SetString(groupSizeString, 16)
-	q.Sub(q, big.NewInt(1))
-	q.Div(q, big.NewInt(2)) //q = (p-1)/2
+func GenerateNISTDHPrivateKey1536(rnd *rand.Rand) *big.Int {
+	q, _ := big.NewInt(0).SetString(groupSizeString, 16)
 
-	q.Sub(q, big.NewInt(1))
-	q.Rand(rnd, q)          //generate a random number from 0 to (p-1)/2 - 2
-	q.Add(q, big.NewInt(1)) //1 to (p-1)/2 - 1
+	return GenerateDHPrivateKey(rnd, q)
+}
 
-	return q
-
+//DiffieHellmanKeys generates two 128-bit keys using
+//the receiver's public key A, the sender's private key b,
+//and the chosen prime p
+func DiffieHellmanKeys(A, b, p *big.Int) ([]byte, []byte) {
+	sharedSecret := ModExp(A, b, p)
+	secretHash := sha256.Sum256(sharedSecret.Bytes())
+	return secretHash[:16], secretHash[16:]
 }
 
 //NISTDiffieHellmanKeys generates two 128-bit keys using
