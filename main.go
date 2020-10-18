@@ -1,99 +1,71 @@
 package main
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
 )
 
-//Order of the 1536-bit MODP group defined in RFC 3526
-const groupSizeString = "ffffffffffffffffc90fdaa22168c234" +
-	"c4c6628b80dc1cd129024e088a67cc74" +
-	"020bbea63b139b22514a08798e3404dd" +
-	"ef9519b3cd3a431b302b0a6df25f1437" +
-	"4fe1356d6d51c245e485b576625e7ec6" +
-	"f44c42e9a637ed6b0bff5cb6f406b7ed" +
-	"ee386bfb5a899fa5ae9f24117c4b1fe6" +
-	"49286651ece45b3dc2007cb8a163bf05" +
-	"98da48361c55d39a69163fa8fd24cf5f" +
-	"83655d23dca3ad961c62f356208552bb" +
-	"9ed529077096966d670c354e4abc9804" +
-	"f1746c08ca237327ffffffffffffffff"
-
-//ModExp computes (a**x) mod m
-func ModExp(a, x, m *big.Int) (r *big.Int) {
-	accum := big.NewInt(1)
-	expLength := x.BitLen()
-	for i := 0; i < expLength; i++ {
-		accum.Mul(accum, accum)
-		if x.Bit(i) != 0 {
-			accum.Mul(accum, a)
+//DHEchoBob implements an "echo" bot. To use:
+//Start as a goroutine, then send Alice's DH public
+//key over in. Read Bob's public key from out.
+//Send a message encrypted with AES-CBC with the IV appended to the end over in
+//Read the echoed message, encrypted similarly, from out
+func DHEchoBob(in, out chan []byte) {
+	rSource := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := GenerateNISTDHPrivateKey(rSource)
+	aBytes := <-in
+	A := big.NewInt(0)
+	A.SetBytes(aBytes)
+	out <- b.Bytes()
+	key1, _ := NISTDiffieHellmanKeys(A, b)
+	for {
+		v, ok := <-in
+		if !ok {
+			close(out)
+			break
 		}
-		accum.Mod(accum, m)
+		iv := v[len(v)-16:]
+		aMsgEncrypted := v[:len(v)-16]
+		aMsg := DecryptAESCBC(aMsgEncrypted, key1, iv)
+		aMsg, _ = StripPKCS7Padding(aMsg, 16)
+		fmt.Printf("BOB: Decrypted message from Alice: %v\n", string(aMsg))
+		bobIv := GenerateRandomByteSlice(16)
+		aMsg = PKCSPad(aMsg, 16)
+		bMsgEncrypted := EncryptAESCBC(aMsg, key1, bobIv)
+		bMsgEncrypted = append(bMsgEncrypted, bobIv...)
+		out <- bMsgEncrypted
+
 	}
-	return accum
-
-}
-
-//GenerateNISTDHPublicKey generates a Diffie-Hellman
-//public key A from a private key a using the 1536-bit
-//MODP group defined in RFC-3526 section 2
-func GenerateNISTDHPublicKey(a *big.Int) *big.Int {
-	p := big.NewInt(0)
-	p.SetString(groupSizeString, 16)
-
-	g := big.NewInt(2)
-	return ModExp(g, a, p)
-}
-
-//GenerateNISTDHPrivateKey generates a random private key
-//suitable for use with the 1536-bit MODP group defined in
-//RFC-3526 section 2. This implementation does NOT use a
-//cryptographically-secure RNG, so don't use it for anything real.
-func GenerateNISTDHPrivateKey(rnd *rand.Rand) *big.Int {
-	q := big.NewInt(0)
-	q.SetString(groupSizeString, 16)
-	q.Sub(q, big.NewInt(1))
-	q.Div(q, big.NewInt(2)) //q = (p-1)/2
-
-	q.Sub(q, big.NewInt(1))
-	q.Rand(rnd, q)          //generate a random number from 0 to (p-1)/2 - 2
-	q.Add(q, big.NewInt(1)) //1 to (p-1)/2 - 1
-
-	return q
-
-}
-
-//NISTDiffieHellmanKeys generates two 128-bit keys using
-//the receiver's public key A and the sender's private key b,
-//using the 1536-bit MODP group defined in RFC-3526 section 2
-func NISTDiffieHellmanKeys(A, b *big.Int) ([]byte, []byte) {
-	m := big.NewInt(0)
-	m.SetString(groupSizeString, 16)
-	sharedSecret := ModExp(A, b, m)
-	secretHash := sha256.Sum256(sharedSecret.Bytes())
-	return secretHash[:16], secretHash[16:]
 }
 
 func main() {
 	//usually need these
 	rand.Seed(time.Now().Unix())
 	//key := GenerateRandomByteSlice(16)
+	aToB := make(chan []byte)
+	bToA := make(chan []byte)
+	go DHEchoBob(aToB, bToA)
 	rSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	a := GenerateNISTDHPrivateKey(rSource)
-	b := GenerateNISTDHPrivateKey(rSource)
-	fmt.Printf("Private key 1 %X\n", a)
-	fmt.Printf("Private key 2 %X\n", b)
-	A := GenerateNISTDHPublicKey(a)
-	B := GenerateNISTDHPublicKey(b)
-	fmt.Printf("Public key 1 %X\n", A)
-	fmt.Printf("Public key 2 %X\n", B)
+	aToB <- a.Bytes()
+	bBytes := <-bToA
+	B := big.NewInt(0).SetBytes(bBytes)
+	key1, _ := NISTDiffieHellmanKeys(B, a)
+	message := []byte("TOP SECRET MESSAGE DON'T TELL ANYONE")
+	message = PKCSPad(message, 16)
+	iv := GenerateRandomByteSlice(16)
+	encryptedMsg := EncryptAESCBC(message, key1, iv)
+	encryptedMsg = append(encryptedMsg, iv...)
+	aToB <- encryptedMsg
 
-	keyA1, keyA2 := NISTDiffieHellmanKeys(A, b)
-	keyB1, keyB2 := NISTDiffieHellmanKeys(B, a)
-	fmt.Printf("Key A1 %X\nKey B1 %X\n", keyA1, keyB1)
-	fmt.Printf("Key A2 %X\nKey B2 %X\n", keyA2, keyB2)
+	encryptedMsg = <-bToA
+	iv = encryptedMsg[len(encryptedMsg)-16:]
+	encryptedMsg = encryptedMsg[:len(encryptedMsg)-16]
+	decryptedMsg := DecryptAESCBC(encryptedMsg, key1, iv)
+	decryptedMsg, _ = StripPKCS7Padding(decryptedMsg, 16)
+	fmt.Printf("ALICE: Decrypted message from Bob: %v\n", string(decryptedMsg))
+	close(aToB)
 
 }
