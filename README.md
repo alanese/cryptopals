@@ -35,4 +35,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 31. Server currently in `server/server_main.go`. HMAC-breaking with `C31BreakHash` in `set_4.go`. Some code in `server/server_main.go` is duplicated elsewhere. The current revision of the code is the updated version to handle smaller delays per challenge 32.
 32. My original challenge 31 code started breaking at a 5-ms delay. Added some code to allow backtracking; now tested and working down to 2 ms. It could work at 1 ms as well, though not as reliably; anything lower would require rewriting the timing code for more precision.
 33. Generate a Diffie-Hellman private key with `GenerateNISTDHPrivateKey` in `set_5.go`. Generate the corresponding public key with `GenerateNISTDHPublicKey` in `set_5.go`. Generate shared keys with `NISTDiffieHellmanKeys` in `set_5.go`.
-34. The "echo bot" is the function `DHEchoBob`, currently in `main.go` - run it as a goroutine. MITM is implemented as `C34Mallory`, currently in `main.go`. Run this as a goroutine as well.
+34. The "echo bot" is the function `DHEchoBob`, in `set_5,go` - run it as a goroutine. MITM is implemented as `C34Mallory`, in `set_5.go`. Run this as a goroutine as well.
+35. "Echo bot" is `C35EchoBob` in `set_5.go`; MITM is `C35Mallory` in `set_5.go`. Run both as go-routines.
