@@ -142,9 +142,31 @@ func C37LogIn(username, password string) bool {
 
 }
 
+//C37BypassLogIn fools an improperly-safeguarded SRP password
+//verification scheme into granting access without knowing
+//the password
+func C37BypassLogIn(username string) bool {
+	genbBase := "http://localhost:8080/getB?u=%v&A=%X"
+	verifyBase := "http://localhost:8080/validate?u=%v&signature=%X"
+
+	A := big.NewInt(0)
+	genbresp, _ := http.Get(fmt.Sprintf(genbBase, username, A))
+	salt := make([]byte, 16)
+	genbresp.Body.Read(salt)
+
+	K := sha256.Sum256(A.Bytes())
+	hasher := hmac.New(sha256.New, K[:])
+
+	verifyHmac := hasher.Sum(salt)
+	verifyResp, _ := http.Get(fmt.Sprintf(verifyBase, username, verifyHmac))
+
+	return verifyResp.StatusCode == http.StatusOK
+}
+
 func main() {
 
-	ok := C37LogIn("bob", "secretpassword123")
+	//ok := C37LogIn("bob", "secretpassword123")
+	ok := C37BypassLogIn("bob")
 	fmt.Println(ok)
 
 }
