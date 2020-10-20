@@ -38,4 +38,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 34. The "echo bot" is the function `DHEchoBob`, in `set_5,go` - run it as a goroutine. MITM is implemented as `C34Mallory`, in `set_5.go`. Run this as a goroutine as well.
 35. "Echo bot" is `C35EchoBob` in `set_5.go`; MITM is `C35Mallory` in `set_5.go`. Run both as go-routines.
 36. `SRPServer` and `SRPClient`, both currently in `main.go`. Run `SRPServer` as a go-routine.
-37. Client side login in `C37LogIn`, currently in `main.go`. Server currently in `server/server_main.go`. Attack in `C37BypassLogIn`, currently in `main.go`
+37. Client side login in `C37LogIn`, currently in `set_5.go`. Server currently in `server/server_main.go`. Attack in `C37BypassLogIn`, currently in `set_5.go`
+38. Client in `C38Client`, server in `C38Server`, MTIM in `C38MITM`, all currently in `main.go`

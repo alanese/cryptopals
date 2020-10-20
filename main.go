@@ -6,47 +6,43 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"net/http"
 	"time"
 )
 
-//SRPServer implements the server side of an SRP password
-//verification scheme
-func SRPServer(in, out chan []byte) {
+//C38Server implements a simplified SRP server per challenge 38
+func C38Server(in, out chan []byte) {
+	password := "secret"
 	g := big.NewInt(2)
-	k := big.NewInt(3)
 	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
-	b := GenerateNISTDHPrivateKey1536(rand.New(rand.NewSource(time.Now().UnixNano())))
 	salt := GenerateRandomByteSlice(16)
-	password := "secretpassword123"
-	salted := append(salt, []byte(password)...)
+	salted := append(salt, password...)
 	xH := sha256.Sum256(salted)
 	x := big.NewInt(0).SetBytes(xH[:])
-	//v := big.NewInt(0).Exp(g, x, p)
-	v := ModExp(g, x, p)
-	//Pretend to forget x, xH
+	v := big.NewInt(0).Exp(g, x, p)
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := GenerateNISTDHPrivateKey1536(rnd)
+	B := big.NewInt(0).Exp(g, b, p)
 
-	<-in //Ignore email - we're not doing multiple clients yet
+	<-in //ignore username for this simple implementation
 	A := big.NewInt(0).SetBytes(<-in)
-	out <- salt
-	B := big.NewInt(0).Exp(g, b, p) //g**b % p
-	tmp := big.NewInt(0).Mul(k, v)
-	B.Add(B, tmp) //kv + (g**b %p)
-	B.Mod(B, p)   //kv + g**b % p
-	out <- B.Bytes()
 
-	uH := sha256.Sum256(append(A.Bytes(), B.Bytes()...))
-	u := big.NewInt(0).SetBytes(uH[:])
-	//good to here
-	t0 := big.NewInt(0).Mul(A, big.NewInt(0).Exp(v, u, p))
-	S := big.NewInt(0).Exp(t0, b, p)
+	out <- salt
+	out <- B.Bytes()
+	uH := GenerateRandomByteSlice(16)
+	out <- uH
+	u := big.NewInt(0).SetBytes(uH)
+
+	S := big.NewInt(0).Exp(v, u, p)
+	S.Mul(S, A)
+	S.Exp(S, b, p)
 	K := sha256.Sum256(S.Bytes())
 
-	providedHmac := <-in
+	hasher := hmac.New(sha256.New, K[:])
+	trueHmac := hasher.Sum(salt)
 
-	hmacHasher := hmac.New(sha256.New, K[:])
-	realHmac := hmacHasher.Sum(salt)
-	if hmac.Equal(providedHmac, realHmac) {
+	validateHmac := <-in
+
+	if hmac.Equal(validateHmac, trueHmac) {
 		out <- []byte("OK")
 	} else {
 		out <- []byte("ERROR")
@@ -54,119 +50,114 @@ func SRPServer(in, out chan []byte) {
 
 }
 
-//SRPClient implements the client side of an SRP password
-//verification scheme
-func SRPClient(in, out chan []byte) []byte {
-	g := big.NewInt(2)
-	k := big.NewInt(3)
+//C38Client implements a simplified SRP client per challenge 38
+func C38Client(in, out chan []byte) bool {
+	I := "bob"
+	password := "pumbaa"
 	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
-	a := GenerateNISTDHPrivateKey1536(rand.New(rand.NewSource(time.Now().UnixNano())))
-
-	A := big.NewInt(0).Exp(g, a, p)
-	email := "bob@example.com"
-	password := "secretpassword123"
-	out <- []byte(email)
-	out <- A.Bytes()
-	salt := <-in
-	B := big.NewInt(0).SetBytes(<-in)
-	uH := sha256.Sum256(append(A.Bytes(), B.Bytes()...))
-	u := big.NewInt(0).SetBytes(uH[:])
-	//good to here
-	salted := append(salt, []byte(password)...)
-	xH := sha256.Sum256(salted)
-	x := big.NewInt(0).SetBytes(xH[:])
-
-	t0 := big.NewInt(0).Exp(g, x, p) //g**x %p
-	t0 = t0.Mul(t0, k)
-	t1 := big.NewInt(0).Sub(B, t0)
-	t2 := big.NewInt(0).Add(a, big.NewInt(0).Mul(u, x))
-	S := big.NewInt(0).Exp(t1, t2, p)
-
-	K := sha256.Sum256(S.Bytes())
-
-	hmacHasher := hmac.New(sha256.New, K[:])
-
-	hm := hmacHasher.Sum(salt)
-
-	out <- hm
-
-	response := <-in
-	return response
-
-}
-
-//C37LogIn implements the client side of an SRP password
-//verification scheme running over a network
-func C37LogIn(username, password string) bool {
-	genbBase := "http://localhost:8080/getB?u=%v&A=%X"
-	verifyBase := "http://localhost:8080/validate?u=%v&signature=%X"
-
-	k := big.NewInt(3)
-	g := big.NewInt(2)
-	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
-
-	rSource := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	a := GenerateNISTDHPrivateKey1536(rSource)
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	a := GenerateNISTDHPrivateKey1536(rnd)
 	A := GenerateNISTDHPublicKey1536(a)
 
-	genbresp, _ := http.Get(fmt.Sprintf(genbBase, username, A))
-	respLength := genbresp.ContentLength
-	salt := make([]byte, 16)
-	genbresp.Body.Read(salt)
-	BBytes := make([]byte, respLength-16)
-	genbresp.Body.Read(BBytes)
-	B := big.NewInt(0).SetBytes(BBytes)
+	out <- []byte(I)
+	out <- A.Bytes()
 
-	uH := sha256.Sum256(append(A.Bytes(), BBytes...))
-	u := big.NewInt(0).SetBytes(uH[:])
+	salt := <-in
+	B := big.NewInt(0).SetBytes(<-in)
+	u := big.NewInt(0).SetBytes(<-in)
 
 	salted := append(salt, password...)
 	xH := sha256.Sum256(salted)
 	x := big.NewInt(0).SetBytes(xH[:])
+	exp := big.NewInt(0).Mul(u, x)
+	exp.Add(a, exp)
+	S := big.NewInt(0).Exp(B, exp, p)
 
-	t0 := big.NewInt(0).Exp(g, x, p)
-	t0.Mul(t0, k)
-	t0.Sub(B, t0)
-	t1 := big.NewInt(0).Mul(u, x)
-	t1.Add(t1, a)
-	S := big.NewInt(0).Exp(t0, t1, p)
 	K := sha256.Sum256(S.Bytes())
 
 	hasher := hmac.New(sha256.New, K[:])
+	validateHmac := hasher.Sum(salt)
+	out <- validateHmac
 
-	verifyHmac := hasher.Sum(salt)
+	resp := <-in
 
-	verifyResp, _ := http.Get(fmt.Sprintf(verifyBase, username, verifyHmac))
-	return verifyResp.StatusCode == http.StatusOK
+	return string(resp) == "OK"
 
 }
 
-//C37BypassLogIn fools an improperly-safeguarded SRP password
-//verification scheme into granting access without knowing
-//the password
-func C37BypassLogIn(username string) bool {
-	genbBase := "http://localhost:8080/getB?u=%v&A=%X"
-	verifyBase := "http://localhost:8080/validate?u=%v&signature=%X"
+//C38MITM cracks a simplified SRP password with a MITM attack.
+//For simplicity, assumes the password is six lowercase letters
+func C38MITM(in, out chan []byte) {
+	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := GenerateNISTDHPrivateKey1536(rnd)
+	B := GenerateNISTDHPublicKey1536(b)
+	salt := GenerateRandomByteSlice(16)
+	u := big.NewInt(0).SetBytes(GenerateRandomByteSlice(16))
 
-	A := big.NewInt(0)
-	genbresp, _ := http.Get(fmt.Sprintf(genbBase, username, A))
-	salt := make([]byte, 16)
-	genbresp.Body.Read(salt)
+	<-in //ignore username for this example
+	A := big.NewInt(0).SetBytes(<-in)
+	out <- salt
+	out <- B.Bytes()
+	out <- u.Bytes()
 
-	K := sha256.Sum256(A.Bytes())
-	hasher := hmac.New(sha256.New, K[:])
+	targetHmac := <-in
 
-	verifyHmac := hasher.Sum(salt)
-	verifyResp, _ := http.Get(fmt.Sprintf(verifyBase, username, verifyHmac))
+	dhKey := big.NewInt(0).Exp(A, b, p)
 
-	return verifyResp.StatusCode == http.StatusOK
+	testPW := []byte{97, 97, 97, 97, 97, 97}
+	for {
+		fmt.Printf("Testing password %v\n", string(testPW))
+		salted := append(salt, testPW...)
+		xH := sha256.Sum256(salted)
+		x := big.NewInt(0).SetBytes(xH[:])
+		exp := big.NewInt(0).Mul(u, x)
+		S := big.NewInt(0).Exp(B, exp, p)
+		S.Mul(S, dhKey)
+		S.Mod(S, p)
+		K := sha256.Sum256(S.Bytes())
+		hasher := hmac.New(sha256.New, K[:])
+		testHmac := hasher.Sum(salt)
+		if hmac.Equal(targetHmac, testHmac) {
+			fmt.Printf("Found password: %v\n", string(testPW))
+			out <- []byte("ERROR")
+			return
+		}
+		testPW[0]++
+		if testPW[0] > 122 {
+			testPW[0] = 97
+			testPW[1]++
+			if testPW[1] > 122 {
+				testPW[1] = 97
+				testPW[2]++
+				if testPW[2] > 122 {
+					testPW[2] = 97
+					testPW[3]++
+					if testPW[3] > 122 {
+						testPW[3] = 97
+						testPW[4]++
+						if testPW[4] > 122 {
+							testPW[4] = 97
+							testPW[5]++
+							if testPW[5] > 122 {
+								fmt.Printf("Failed to find password\n")
+								out <- []byte("ERROR")
+							}
+						}
+					}
+				}
+			}
+		}
+
+	}
 }
 
 func main() {
 
-	//ok := C37LogIn("bob", "secretpassword123")
-	ok := C37BypassLogIn("bob")
+	cToM := make(chan []byte)
+	mToC := make(chan []byte)
+	go C38MITM(cToM, mToC)
+	ok := C38Client(mToC, cToM)
 	fmt.Println(ok)
 
 }
