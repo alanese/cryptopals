@@ -1,3 +1,6 @@
+//This file contains various functions and constants for
+//finite-field Diffie-Hellman key exchange
+
 package main
 
 import (
@@ -19,21 +22,6 @@ const NIST1536GroupSize = "ffffffffffffffffc90fdaa22168c234" +
 	"83655d23dca3ad961c62f356208552bb" +
 	"9ed529077096966d670c354e4abc9804" +
 	"f1746c08ca237327ffffffffffffffff"
-
-//ModExp computes (a**x) mod m
-func ModExp(a, x, m *big.Int) (r *big.Int) {
-	accum := big.NewInt(1)
-	expLength := x.BitLen()
-	for i := expLength - 1; i >= 0; i-- {
-		accum.Mul(accum, accum)
-		if x.Bit(i) != 0 {
-			accum.Mul(accum, a)
-		}
-		accum.Mod(accum, m)
-	}
-	return accum
-
-}
 
 //GenerateDHPublicKey generates a diffie-hellman public
 //key from the given private key, prime, and generator

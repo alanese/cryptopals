@@ -1,3 +1,4 @@
+//This file contains an implementation of a Mersenne Twister PRNG
 package main
 
 const twisterLength = 624

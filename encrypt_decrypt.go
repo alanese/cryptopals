@@ -1,3 +1,5 @@
+//This file contains assorted encryption and decryption functions
+
 package main
 
 import (

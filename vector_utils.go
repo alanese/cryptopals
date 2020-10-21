@@ -1,3 +1,5 @@
+//This file contains utility functions for manipulating
+//int slices as vectors in Euclidean space
 package main
 
 import (

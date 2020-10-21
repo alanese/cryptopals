@@ -1,96 +1,57 @@
 package main
 
 import (
-	cr "crypto/rand"
 	"fmt"
 	"math/big"
 )
 
-//ModInv computes the multiplicative inverse of x modulo m
-//Returns nil if no inverse exists
-func ModInv(x, m *big.Int) *big.Int {
-	zero := big.NewInt(0)
-	t := big.NewInt(0)
-	newt := big.NewInt(1)
-	r := big.NewInt(0).Set(m)
-	newr := big.NewInt(0).Set(x)
+//C40BreakRSA encrypts the given message three times using three
+//randomly-generated RSA public keys, then breaks the encryption
+func C40BreakRSA(msg []byte) {
+	e1, _, n1 := GenerateRSAKeyPair(64)
+	e2, _, n2 := GenerateRSAKeyPair(64)
+	e3, _, n3 := GenerateRSAKeyPair(64)
 
-	for zero.Cmp(newr) != 0 {
-		q := big.NewInt(0).Div(r, newr)
-		t, newt = newt, big.NewInt(0).Sub(t, big.NewInt(0).Mul(q, newt))
-		r, newr = newr, big.NewInt(0).Sub(r, big.NewInt(0).Mul(q, newr))
-	}
+	encrypted1 := big.NewInt(0).SetBytes(RSAEncrypt(msg, e1, n1))
+	encrypted2 := big.NewInt(0).SetBytes(RSAEncrypt(msg, e2, n2))
+	encrypted3 := big.NewInt(0).SetBytes(RSAEncrypt(msg, e3, n3))
 
-	if big.NewInt(1).Cmp(r) < 0 {
-		return nil
-	}
-	if zero.Cmp(t) > 0 {
-		t = t.Add(t, m)
-	}
-	return t
-}
+	ms1 := big.NewInt(0).Mul(n2, n3)
+	ms2 := big.NewInt(0).Mul(n1, n3)
+	ms3 := big.NewInt(0).Mul(n1, n2)
+	inv1 := big.NewInt(0).ModInverse(ms1, n1)
+	inv2 := big.NewInt(0).ModInverse(ms2, n2)
+	inv3 := big.NewInt(0).ModInverse(ms3, n3)
 
-//GenerateRSAKeyPair generates RSA public and private keypairs
-//using primes of the given bit length. Public key is [e, n],
-//private key is [b, n]
-func GenerateRSAKeyPair(pqbits int) (e *big.Int, d *big.Int, n *big.Int) {
-	var p *big.Int
-	var q *big.Int
-	e = big.NewInt(3)
-	zero := big.NewInt(0)
-	one := big.NewInt(1)
-	tmpMod := big.NewInt(0)
-	//ensure p-1 %3 != 0
-	for tmpMod.Cmp(zero) == 0 {
-		p, _ = cr.Prime(cr.Reader, pqbits)
-		tmpMod = tmpMod.Sub(p, one)
-		tmpMod = tmpMod.Mod(tmpMod, e)
-	}
-	tmpMod = big.NewInt(0)
-	//ensure q-1 %3 != 0
-	for tmpMod.Cmp(zero) == 0 {
-		q, _ = cr.Prime(cr.Reader, pqbits)
-		tmpMod = tmpMod.Sub(q, one)
-		tmpMod = tmpMod.Mod(tmpMod, e)
-	}
-	n = big.NewInt(0).Mul(p, q)
-	pminus1 := big.NewInt(0).Sub(p, big.NewInt(1))
-	qminus1 := big.NewInt(0).Sub(q, big.NewInt(1))
-	et := big.NewInt(0).Mul(pminus1, qminus1)
-	d = big.NewInt(0).ModInverse(e, et)
-	return
-}
+	res1 := big.NewInt(0).Mul(encrypted1, ms1)
+	res1.Mul(res1, inv1)
+	res2 := big.NewInt(0).Mul(encrypted2, ms2)
+	res2.Mul(res2, inv2)
+	res3 := big.NewInt(0).Mul(encrypted3, ms3)
+	res3.Mul(res3, inv3)
 
-//RSAEncrypt encrypts the byte slice msg using the RSA public
-//keypair [e, n]
-func RSAEncrypt(msg []byte, e, n *big.Int) []byte {
-	msgNum := big.NewInt(0).SetBytes(msg)
-	encryptedMsgNum := big.NewInt(0).Exp(msgNum, e, n)
-	return encryptedMsgNum.Bytes()
-}
+	tot := big.NewInt(0).Add(res1, res2)
+	tot.Add(tot, res3)
 
-//RSADecrypt decrypts the byte slice msg using the RSA private
-//keypaid [d, n]
-func RSADecrypt(msg []byte, d, n *big.Int) []byte {
-	msgNum := big.NewInt(0).SetBytes(msg)
-	decryptedMsgNum := big.NewInt(0).Exp(msgNum, d, n)
-	return decryptedMsgNum.Bytes()
+	totalMod := big.NewInt(0).Mul(n1, n2)
+	totalMod.Mul(totalMod, n3)
+
+	tot.Mod(tot, totalMod)
+
+	decrypted := NRoot(tot, 3)
+
+	decryptedH := decrypted.Bytes()
+
+	fmt.Printf("Original bytes: %X\n", msg)
+	fmt.Printf("Dcrypted bytes: %X\n", decryptedH) //Typo is intentional for alignment
+	fmt.Printf("Original message %v\n", string(msg))
+	fmt.Printf("Dcrypted message %v\n", string(decryptedH))
+
 }
 
 func main() {
 
-	x := big.NewInt(842)
-	m := big.NewInt(1337489)
-	fmt.Println(ModInv(x, m))
-
-	e, d, n := GenerateRSAKeyPair(40)
-
-	msg := []byte{42}
-	fmt.Println(msg)
-
-	encrypted := RSAEncrypt(msg, e, n)
-
-	decrypted := RSADecrypt(encrypted, d, n)
-	fmt.Println(decrypted)
+	msg := []byte("SECRETMSG")
+	C40BreakRSA(msg)
 
 }
