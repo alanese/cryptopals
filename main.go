@@ -1,163 +1,96 @@
 package main
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
+	cr "crypto/rand"
 	"fmt"
 	"math/big"
-	"math/rand"
-	"time"
 )
 
-//C38Server implements a simplified SRP server per challenge 38
-func C38Server(in, out chan []byte) {
-	password := "secret"
-	g := big.NewInt(2)
-	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
-	salt := GenerateRandomByteSlice(16)
-	salted := append(salt, password...)
-	xH := sha256.Sum256(salted)
-	x := big.NewInt(0).SetBytes(xH[:])
-	v := big.NewInt(0).Exp(g, x, p)
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := GenerateNISTDHPrivateKey1536(rnd)
-	B := big.NewInt(0).Exp(g, b, p)
+//ModInv computes the multiplicative inverse of x modulo m
+//Returns nil if no inverse exists
+func ModInv(x, m *big.Int) *big.Int {
+	zero := big.NewInt(0)
+	t := big.NewInt(0)
+	newt := big.NewInt(1)
+	r := big.NewInt(0).Set(m)
+	newr := big.NewInt(0).Set(x)
 
-	<-in //ignore username for this simple implementation
-	A := big.NewInt(0).SetBytes(<-in)
-
-	out <- salt
-	out <- B.Bytes()
-	uH := GenerateRandomByteSlice(16)
-	out <- uH
-	u := big.NewInt(0).SetBytes(uH)
-
-	S := big.NewInt(0).Exp(v, u, p)
-	S.Mul(S, A)
-	S.Exp(S, b, p)
-	K := sha256.Sum256(S.Bytes())
-
-	hasher := hmac.New(sha256.New, K[:])
-	trueHmac := hasher.Sum(salt)
-
-	validateHmac := <-in
-
-	if hmac.Equal(validateHmac, trueHmac) {
-		out <- []byte("OK")
-	} else {
-		out <- []byte("ERROR")
+	for zero.Cmp(newr) != 0 {
+		q := big.NewInt(0).Div(r, newr)
+		t, newt = newt, big.NewInt(0).Sub(t, big.NewInt(0).Mul(q, newt))
+		r, newr = newr, big.NewInt(0).Sub(r, big.NewInt(0).Mul(q, newr))
 	}
 
-}
-
-//C38Client implements a simplified SRP client per challenge 38
-func C38Client(in, out chan []byte) bool {
-	I := "bob"
-	password := "pumbaa"
-	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	a := GenerateNISTDHPrivateKey1536(rnd)
-	A := GenerateNISTDHPublicKey1536(a)
-
-	out <- []byte(I)
-	out <- A.Bytes()
-
-	salt := <-in
-	B := big.NewInt(0).SetBytes(<-in)
-	u := big.NewInt(0).SetBytes(<-in)
-
-	salted := append(salt, password...)
-	xH := sha256.Sum256(salted)
-	x := big.NewInt(0).SetBytes(xH[:])
-	exp := big.NewInt(0).Mul(u, x)
-	exp.Add(a, exp)
-	S := big.NewInt(0).Exp(B, exp, p)
-
-	K := sha256.Sum256(S.Bytes())
-
-	hasher := hmac.New(sha256.New, K[:])
-	validateHmac := hasher.Sum(salt)
-	out <- validateHmac
-
-	resp := <-in
-
-	return string(resp) == "OK"
-
-}
-
-//C38MITM cracks a simplified SRP password with a MITM attack.
-//For simplicity, assumes the password is six lowercase letters
-func C38MITM(in, out chan []byte) {
-	p, _ := big.NewInt(0).SetString(NIST1536GroupSize, 16)
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := GenerateNISTDHPrivateKey1536(rnd)
-	B := GenerateNISTDHPublicKey1536(b)
-	salt := GenerateRandomByteSlice(16)
-	u := big.NewInt(0).SetBytes(GenerateRandomByteSlice(16))
-
-	<-in //ignore username for this example
-	A := big.NewInt(0).SetBytes(<-in)
-	out <- salt
-	out <- B.Bytes()
-	out <- u.Bytes()
-
-	targetHmac := <-in
-
-	dhKey := big.NewInt(0).Exp(A, b, p)
-
-	testPW := []byte{97, 97, 97, 97, 97, 97}
-	for {
-		fmt.Printf("Testing password %v\n", string(testPW))
-		salted := append(salt, testPW...)
-		xH := sha256.Sum256(salted)
-		x := big.NewInt(0).SetBytes(xH[:])
-		exp := big.NewInt(0).Mul(u, x)
-		S := big.NewInt(0).Exp(B, exp, p)
-		S.Mul(S, dhKey)
-		S.Mod(S, p)
-		K := sha256.Sum256(S.Bytes())
-		hasher := hmac.New(sha256.New, K[:])
-		testHmac := hasher.Sum(salt)
-		if hmac.Equal(targetHmac, testHmac) {
-			fmt.Printf("Found password: %v\n", string(testPW))
-			out <- []byte("ERROR")
-			return
-		}
-		testPW[0]++
-		if testPW[0] > 122 {
-			testPW[0] = 97
-			testPW[1]++
-			if testPW[1] > 122 {
-				testPW[1] = 97
-				testPW[2]++
-				if testPW[2] > 122 {
-					testPW[2] = 97
-					testPW[3]++
-					if testPW[3] > 122 {
-						testPW[3] = 97
-						testPW[4]++
-						if testPW[4] > 122 {
-							testPW[4] = 97
-							testPW[5]++
-							if testPW[5] > 122 {
-								fmt.Printf("Failed to find password\n")
-								out <- []byte("ERROR")
-							}
-						}
-					}
-				}
-			}
-		}
-
+	if big.NewInt(1).Cmp(r) < 0 {
+		return nil
 	}
+	if zero.Cmp(t) > 0 {
+		t = t.Add(t, m)
+	}
+	return t
+}
+
+//GenerateRSAKeyPair generates RSA public and private keypairs
+//using primes of the given bit length. Public key is [e, n],
+//private key is [b, n]
+func GenerateRSAKeyPair(pqbits int) (e *big.Int, d *big.Int, n *big.Int) {
+	var p *big.Int
+	var q *big.Int
+	e = big.NewInt(3)
+	zero := big.NewInt(0)
+	one := big.NewInt(1)
+	tmpMod := big.NewInt(0)
+	//ensure p-1 %3 != 0
+	for tmpMod.Cmp(zero) == 0 {
+		p, _ = cr.Prime(cr.Reader, pqbits)
+		tmpMod = tmpMod.Sub(p, one)
+		tmpMod = tmpMod.Mod(tmpMod, e)
+	}
+	tmpMod = big.NewInt(0)
+	//ensure q-1 %3 != 0
+	for tmpMod.Cmp(zero) == 0 {
+		q, _ = cr.Prime(cr.Reader, pqbits)
+		tmpMod = tmpMod.Sub(q, one)
+		tmpMod = tmpMod.Mod(tmpMod, e)
+	}
+	n = big.NewInt(0).Mul(p, q)
+	pminus1 := big.NewInt(0).Sub(p, big.NewInt(1))
+	qminus1 := big.NewInt(0).Sub(q, big.NewInt(1))
+	et := big.NewInt(0).Mul(pminus1, qminus1)
+	d = big.NewInt(0).ModInverse(e, et)
+	return
+}
+
+//RSAEncrypt encrypts the byte slice msg using the RSA public
+//keypair [e, n]
+func RSAEncrypt(msg []byte, e, n *big.Int) []byte {
+	msgNum := big.NewInt(0).SetBytes(msg)
+	encryptedMsgNum := big.NewInt(0).Exp(msgNum, e, n)
+	return encryptedMsgNum.Bytes()
+}
+
+//RSADecrypt decrypts the byte slice msg using the RSA private
+//keypaid [d, n]
+func RSADecrypt(msg []byte, d, n *big.Int) []byte {
+	msgNum := big.NewInt(0).SetBytes(msg)
+	decryptedMsgNum := big.NewInt(0).Exp(msgNum, d, n)
+	return decryptedMsgNum.Bytes()
 }
 
 func main() {
 
-	cToM := make(chan []byte)
-	mToC := make(chan []byte)
-	go C38MITM(cToM, mToC)
-	ok := C38Client(mToC, cToM)
-	fmt.Println(ok)
+	x := big.NewInt(842)
+	m := big.NewInt(1337489)
+	fmt.Println(ModInv(x, m))
+
+	e, d, n := GenerateRSAKeyPair(40)
+
+	msg := []byte{42}
+	fmt.Println(msg)
+
+	encrypted := RSAEncrypt(msg, e, n)
+
+	decrypted := RSADecrypt(encrypted, d, n)
+	fmt.Println(decrypted)
 
 }

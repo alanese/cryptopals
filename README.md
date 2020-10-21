@@ -39,4 +39,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 35. "Echo bot" is `C35EchoBob` in `set_5.go`; MITM is `C35Mallory` in `set_5.go`. Run both as go-routines.
 36. `SRPServer` and `SRPClient`, both currently in `main.go`. Run `SRPServer` as a go-routine.
 37. Client side login in `C37LogIn`, currently in `set_5.go`. Server currently in `server/server_main.go`. Attack in `C37BypassLogIn`, currently in `set_5.go`
-38. Client in `C38Client`, server in `C38Server`, MTIM in `C38MITM`, all currently in `main.go`
+38. Client in `C38Client`, server in `C38Server`, MTIM in `C38MITM`, all in `set_5.go`
+39. Generate keypairs with `GenerateRSAKeyPair`, encrypt with `RSAEncrypt`, decrypt with `RSADecrypt`, all currently in `main.go`. Modular inverse implemented in `ModInv` in `main.go`, but Go's built-in bigint implementation is used in the key generator
