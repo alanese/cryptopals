@@ -1,151 +1,163 @@
 package main
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/asn1"
+	cr "crypto/rand"
+	"crypto/sha1"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
 )
 
-//RSASignatureDigestInfo implements the ASN.1 tag structure
-//(incorrectly) of the DigestInfo type defined in RFC2313
-//section 10.1.2. A correct implementation would have
-//DigestAlgorithm as an AlgorithmIdentifier rather than an
-//OID, but I don't have access to that definition, and I
-//don't really need the details for what I'm doing anyway
-type RSASignatureDigestInfo struct {
-	DigestAlgorithm asn1.ObjectIdentifier
-	Digest          []byte
+//C43pString is a hex representation of the p parameter used
+//for challenge 43
+var C43pString = "800000000000000089e1855218a0e7da" +
+	"c38136ffafa72eda7859f2171e25e65e" +
+	"ac698c1702578b07dc2a1076da241c76" +
+	"c62d374d8389ea5aeffd3226a0530cc5" +
+	"65f3bf6b50929139ebeac04f48c3c84a" +
+	"fb796d61e5a4f9a8fda812ab59494232" +
+	"c7d2b4deb50aa18ee9e132bfa85ac437" +
+	"4d7f9091abc3d015efc871a584471bb1"
+
+//C43qString is a hex representation of the q parameter used
+//for challenge 43
+var C43qString = "f4f47f05794b256174bba6e9b396a7707e563c5b"
+
+//C43gString is a hex representation of the g parameter used for challenge 43
+var C43gString = "5958c9d3898b224b12672c0b98e06c60" +
+	"df923cb8bc999d119458fef538b8fa40" +
+	"46c8db53039db620c094c9fa077ef389" +
+	"b5322a559946a71903f990f1f7e0e025" +
+	"e2d7f7cf494aff1a0470f5b64c36b625" +
+	"a097f1651fe775323556fe00b3608c88" +
+	"7892878480e99041be601a62166ca689" +
+	"4bdd41a7054ec89f756ba9fc95302291"
+
+//GenerateDSAKeyPair generates a private/public DSA keypair
+//with the provided parameters
+func GenerateDSAKeyPair(p, q, g *big.Int) (priv, pub *big.Int) {
+	tmp := big.NewInt(0).Sub(q, big.NewInt(1))
+	priv, _ = cr.Int(cr.Reader, tmp)
+	priv.Add(priv, big.NewInt(1))
+	pub = big.NewInt(0).Exp(g, priv, p)
+	return
 }
 
-var sha256OID = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
+//DSASignSHA1 creates a DSA SHA-1 signature for the provided message
+//with the provided parameters and private key
+func DSASignSHA1(msg []byte, privKey, p, q, g *big.Int) (r, s *big.Int) {
+	one := big.NewInt(1)
 
-//UnmarshalDigestInfo interprets a byte slice in ASN.1 format
-//as an instance of RSASignatureDigestInfo
-func UnmarshalDigestInfo(b []byte) RSASignatureDigestInfo {
-	r := RSASignatureDigestInfo{}
-	asn1.Unmarshal(b, &r)
-	return r
-}
+	qMinusOne := big.NewInt(0).Sub(q, one)
 
-//C42CheckHash determines whether the digest in digestInfo is the SHA-256 digest
-//produced by msg
-func C42CheckHash(digestinfo RSASignatureDigestInfo, msg []byte) bool {
-	verifyHash := digestinfo.Digest
-	targetHash := sha256.Sum256(msg)
-	return bytes.Equal(verifyHash, targetHash[:])
-}
-
-//C42CheckRSASignature determines (incorrectly) if rsaSignature is a properly
-//padded and encrypted RSA SHA-256 signature for msg; the function does not
-//properly ensure the padding is long enough, enabling Bleichenbacher's attack
-//for sufficiently long n
-func C42CheckRSASignature(msg []byte, rsaSignature []byte, e, n *big.Int) bool {
-	sig := RSAEncryptPad(rsaSignature, e, n)
-
-	notPadding := 0
-	padding00 := 1
-	padding0001 := 2
-	paddingFF := 3
-	state := 0
-	i := 0
-	for i < len(sig) {
-		switch state {
-		case notPadding:
-			if sig[i] == 0x00 {
-				state = padding00
-			}
-		case padding00:
-			if sig[i] == 0x01 {
-				state = padding0001
-			} else {
-				state = notPadding
-			}
-		case padding0001:
-			if sig[i] == 0x00 {
-				digestInfo := UnmarshalDigestInfo(sig[i+1:])
-				return C42CheckHash(digestInfo, msg) //deliberately fail to check right-justification
-			} else if sig[i] == 0xFF {
-				state = paddingFF
-			} else {
-				state = notPadding
-			}
-		case paddingFF:
-			if sig[i] == 0x00 {
-				digestInfo := UnmarshalDigestInfo(sig[i+1:])
-				return C42CheckHash(digestInfo, msg) //deliberately fail to check right-justification
-			} else if sig[i] != 0xFF {
-				state = notPadding
-			}
-		default:
-			panic("Unexpected state error") //this shouldn't happen
-
+	for {
+		k, _ := cr.Int(cr.Reader, qMinusOne)
+		k.Add(k, one)
+		r, s, err := DSASignSHA1Forcek(msg, k, privKey, p, q, g)
+		if err != nil {
+			continue
 		}
-		i++
+		return r, s
 	}
-	return false
+}
+
+func DSASignSHA1Forcek(msg []byte, k, privKey, p, q, g *big.Int) (r, s *big.Int, err error) {
+	digest := sha1.Sum(msg)
+	digestNum := big.NewInt(0).SetBytes(digest[:])
+	r = big.NewInt(0).Exp(g, k, p)
+	r.Mod(r, q)
+	if big.NewInt(0).Cmp(r) == 0 {
+		return nil, nil, fmt.Errorf("Invalid k")
+	}
+
+	kInv := big.NewInt(0).ModInverse(k, q)
+	s = big.NewInt(0).Mul(privKey, r)
+	s.Add(digestNum, s)
+	s.Mul(kInv, s)
+	s.Mod(s, q)
+
+	if big.NewInt(0).Cmp(s) == 0 {
+		return nil, nil, fmt.Errorf("Invalid k")
+	}
+	return r, s, nil
+}
+
+//C43CrackPrivateKey finds a DSA private key given a message,
+//a SHA-1 DSA signature of that message (signed with a private key generated
+//with a flawed algorithm), and the provided DSA parameters.
+func C43CrackPrivateKey(msg []byte, r, s, p, q, g *big.Int) *big.Int {
+	hBytes := sha1.Sum(msg)
+	h := big.NewInt(0).SetBytes(hBytes[:])
+	//find k
+	k := big.NewInt(0)
+	testR := big.NewInt(0)
+	for testK := int64(0); testK <= int64(1<<16); testK++ {
+		k.SetInt64(testK)
+		testR.Exp(g, k, p)
+		testR.Mod(testR, q)
+		if r.Cmp(testR) == 0 {
+			break
+		}
+	}
+
+	rInv := big.NewInt(0).ModInverse(r, q)
+	tmp := big.NewInt(0).Mul(s, k)
+	tmp.Sub(tmp, h)
+	tmp.Mul(tmp, rInv)
+	x := big.NewInt(0).Mod(tmp, q)
+	return x
 
 }
 
-//RSASign generates an RSA signature for msg with the private
-//keypair [d, n]. This pads per PKCS1.5, but doesn't quite encode the digest
-//according to the standard - see comment on RSASignatureDigestInfo
-func RSASign(msg []byte, d, n *big.Int) []byte {
-	digest := sha256.Sum256(msg)
-	digestinfo, _ := asn1.Marshal(RSASignatureDigestInfo{sha256OID, digest[:]})
-
-	paddingLength := len(n.Bytes()) - len(digestinfo)
-	padding := make([]byte, paddingLength)
-	padding[1] = 0x01
-	for i := 2; i < paddingLength-1; i++ {
-		padding[i] = 0xFF
+//VerifyDSASHA1Signature checks whether (r,s) is a valid DSA SHA-1 signature
+//of msg with the provided parameters and public key
+func VerifyDSASHA1Signature(msg []byte, r, s, pubKey, p, q, g *big.Int) bool {
+	zero := big.NewInt(0)
+	//Check r range
+	if zero.Cmp(r) >= 0 || q.Cmp(r) <= 0 {
+		return false
 	}
-	D := append(padding, digestinfo...)
-	signature := RSADecryptPad(D, d, n)
-	return signature
-}
-
-//C42ForgeSignature forges an e=3 RSA signature for the given message
-//via a flawed padding check in the verifier. This will fail if n isn't
-//at least roughly three times the length of the encoded ASN data (47 bytes)
-func C42ForgeSignature(msg []byte, n *big.Int) []byte {
-	dataLength := len(n.Bytes())
-	digest := sha256.Sum256(msg)
-	asnData, _ := asn1.Marshal(RSASignatureDigestInfo{sha256OID, digest[:]})
-	fmt.Println(len(asnData))
-
-	padding := make([]byte, dataLength/3-len(asnData))
-	padding[1] = 0x01
-	for i := 2; i < len(padding)-1; i++ {
-		padding[i] = 0xFF
+	//Check s range
+	if zero.Cmp(s) >= 0 || q.Cmp(s) <= 0 {
+		return false
 	}
-	dHead := append(padding, asnData...)
-	garbageLength := dataLength - len(dHead)
-	garbage := GenerateRandomByteSlice(garbageLength)
-	forgedD := append(dHead, garbage...)
-	forgedDNum := big.NewInt(0).SetBytes(forgedD)
-	forgedSigNum := NRoot(forgedDNum, 3)
-	forgedSig := forgedSigNum.Bytes()
-	return forgedSig
+
+	w := big.NewInt(0).ModInverse(s, q)
+	h := sha1.Sum(msg)
+	u1 := big.NewInt(0).SetBytes(h[:])
+	u1.Mul(u1, w)
+	u1.Mod(u1, q)
+	u2 := big.NewInt(0).Mul(r, w)
+	u2.Mod(u2, q)
+
+	v := big.NewInt(0).Exp(g, u1, p)
+	v2 := big.NewInt(0).Exp(pubKey, u2, p)
+	v.Mul(v, v2)
+	v.Mod(v, p)
+	v.Mod(v, q)
+	return v.Cmp(r) == 0
+
 }
 
 func main() {
 	rand.Seed(time.Now().Unix())
 
-	msg := []byte("hi mom")
-	e, d, n := GenerateRSAKeyPair(1024)
+	p, _ := big.NewInt(0).SetString(C43pString, 16)
+	g, _ := big.NewInt(0).SetString(C43gString, 16)
+	q, _ := big.NewInt(0).SetString(C43qString, 16)
 
-	sig := RSASign(msg, d, n)
+	rStr := "548099063082341131477253921760299949438196259240"
+	sStr := "857042759984254168557880549501802188789837994940"
 
-	ok := C42CheckRSASignature(msg, sig, e, n)
-	fmt.Println(ok)
+	r, _ := big.NewInt(0).SetString(rStr, 10)
+	s, _ := big.NewInt(0).SetString(sStr, 10)
 
-	forgedSig := C42ForgeSignature(msg, n)
+	lyrics := []byte("For those that envy a MC it can be hazardous to your health\nSo be friendly, a matter of life and death, just like a etch-a-sketch\n")
 
-	ok = C42CheckRSASignature(msg, forgedSig, e, n)
-	fmt.Println(ok)
+	privKey := C43CrackPrivateKey(lyrics, r, s, p, q, g)
+	pkBytes := []byte(fmt.Sprintf("%x", privKey))
+	pkHash := sha1.Sum(pkBytes)
+	fmt.Printf("%X\n", pkHash)
 
 }
