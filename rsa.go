@@ -9,7 +9,7 @@ import (
 
 //GenerateRSAKeyPair generates RSA public and private keypairs
 //using primes of the given bit length. Public key is [e, n],
-//private key is [b, n]
+//private key is [d, n]
 func GenerateRSAKeyPair(pqbits int) (e *big.Int, d *big.Int, n *big.Int) {
 	var p *big.Int
 	var q *big.Int
@@ -46,10 +46,30 @@ func RSAEncrypt(msg []byte, e, n *big.Int) []byte {
 	return encryptedMsgNum.Bytes()
 }
 
+//RSAEncryptPad encrypts the byte slice msg using the RSA public
+//keypair [e, n] and pads the result to the length of n (rounded
+//up to the next byte)
+func RSAEncryptPad(msg []byte, e, n *big.Int) []byte {
+	encrypted := RSAEncrypt(msg, e, n)
+	padding := make([]byte, len(n.Bytes())-len(encrypted))
+	padded := append(padding, encrypted...)
+	return padded
+}
+
 //RSADecrypt decrypts the byte slice msg using the RSA private
-//keypaid [d, n]
+//keypair [d, n]
 func RSADecrypt(msg []byte, d, n *big.Int) []byte {
 	msgNum := big.NewInt(0).SetBytes(msg)
 	decryptedMsgNum := big.NewInt(0).Exp(msgNum, d, n)
 	return decryptedMsgNum.Bytes()
+}
+
+//RSADecryptPad decrypts the byte slice msg using the RSA private
+//keypair [d, n] and pads the result to the length of n (rounded
+//up to the next byte)
+func RSADecryptPad(msg []byte, d, n *big.Int) []byte {
+	decrypted := RSADecrypt(msg, d, n)
+	padding := make([]byte, len(n.Bytes())-len(decrypted))
+	padded := append(padding, decrypted...)
+	return padded
 }

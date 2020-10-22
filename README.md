@@ -43,3 +43,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 39. Generate keypairs with `GenerateRSAKeyPair`, encrypt with `RSAEncrypt`, decrypt with `RSADecrypt`, all in `rsa.go`. Modular inverse implemented in `ModInv` in `crypto_utils.go`, but Go's built-in bigint implementation is used in the key generator
 40. `C40BreakRSA` in `set_5.go`
 41. `C41Recovery`, currently in `main.go`
+42. Verify a signature with `C42CheckRSASignature`, currently in `main.go`. Create a legitimate (almost-)standard signature with `RSASign`, currently in `main.go`. Forge a signature with `C42ForgeSignature`, currently in `main.go`. Due to my use of a closer-to-standard ASN scheme than the challenge asks for, a 1024-bit n is (barely) too short, so I used 2048 instead.
