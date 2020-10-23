@@ -46,3 +46,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 42. Verify a signature with `C42CheckRSASignature` in `set_6.go`. Create a legitimate (almost-)standard signature with `RSASign` in `rsa.go`. Forge a signature with `C42ForgeSignature` in `set_6.go`. Due to my use of a closer-to-standard ASN scheme than the challenge asks for, a 1024-bit n is (barely) too short, so I used 2048 instead.
 43. Generate a keypair with `GenerateDSAKeyPair`. Sign a message with `DSASignSHA1`. Verify a signature with `VerifyDSASHA1Signature`. Crack a private key with `C43CrackPrivateKey`. The first three functions are in `dsa.go`, the last in `set_6.go`.
 44. Find the private key with `C44FindKey`, currently in `main.go`
+45. Generate a magic signature for `g cong 1  (mod p)` with `C45MagicSignature`, currently in `main.go`.
