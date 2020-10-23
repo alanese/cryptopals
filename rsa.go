@@ -87,7 +87,7 @@ func RSAEncrypt(msg []byte, e, n *big.Int) []byte {
 }
 
 //RSAEncryptPad encrypts the byte slice msg using the RSA public
-//keypair [e, n] and pads the result to the length of n (rounded
+//keypair [e, n] and left-pads the result to the length of n (rounded
 //up to the next byte)
 func RSAEncryptPad(msg []byte, e, n *big.Int) []byte {
 	encrypted := RSAEncrypt(msg, e, n)
@@ -105,7 +105,7 @@ func RSADecrypt(msg []byte, d, n *big.Int) []byte {
 }
 
 //RSADecryptPad decrypts the byte slice msg using the RSA private
-//keypair [d, n] and pads the result to the length of n (rounded
+//keypair [d, n] and left-pads the result to the length of n (rounded
 //up to the next byte)
 func RSADecryptPad(msg []byte, d, n *big.Int) []byte {
 	decrypted := RSADecrypt(msg, d, n)
