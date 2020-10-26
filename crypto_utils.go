@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/bits"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -139,6 +141,19 @@ func PKCSPad(txt []byte, blockSize int) []byte {
 		txt = append(txt, byte(toAdd))
 	}
 	return txt
+}
+
+func PKCS15Pad(txt []byte, length int) ([]byte, error) {
+	if len(txt) > length-11 {
+		return nil, fmt.Errorf("Length too short to accommodate padding")
+	}
+	padded := []byte{0x00, 0x02}
+	for len(padded) < length-len(txt)-1 {
+		padded = append(padded, byte(rand.Intn(254)+1))
+	}
+	padded = append(padded, 0x00)
+	padded = append(padded, txt...)
+	return padded, nil
 }
 
 //ScoreText computes a score for a potential plaintext.

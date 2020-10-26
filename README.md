@@ -47,4 +47,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 43. Generate a keypair with `GenerateDSAKeyPair`. Sign a message with `DSASignSHA1`. Verify a signature with `VerifyDSASHA1Signature`. Crack a private key with `C43CrackPrivateKey`. The first three functions are in `dsa.go`, the last in `set_6.go`.
 44. Find the private key with `C44FindKey` in `set_6.go`
 45. Generate a magic signature for `g cong 1  (mod p)` with `C45MagicSignature` in `set_6.go`
-46. Parity oracle in `RSAParityOracle` (true if odd, false if even), parity oracle attack in `RSAParityAttack`, both currently in `main.go`.
+46. Parity oracle in `C46RSAParityOracle` (true if odd, false if even), parity oracle attack in `C46RSAParityAttack`, both in `set_6.go`.
+47. Attack in `BleichenbacherAttack`, currently in `main.go`. Go's syntax for bignums did not help with this one.
