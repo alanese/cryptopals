@@ -231,7 +231,7 @@ func C47PaddingOracle(m []byte, d, n *big.Int) bool {
 
 func main() {
 	secretMessage := []byte("kick it, CC")
-	e, d, n := GenerateRSAKeyPair(128)
+	e, d, n := GenerateRSAKeyPair(384)
 	m, _ := PKCS15Pad(secretMessage, len(n.Bytes()))
 	fmt.Println("Padded")
 	encrypted := RSAEncryptPad(m, e, n)

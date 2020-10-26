@@ -49,3 +49,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 45. Generate a magic signature for `g cong 1  (mod p)` with `C45MagicSignature` in `set_6.go`
 46. Parity oracle in `C46RSAParityOracle` (true if odd, false if even), parity oracle attack in `C46RSAParityAttack`, both in `set_6.go`.
 47. Attack in `BleichenbacherAttack`, currently in `main.go`. Go's syntax for bignums did not help with this one.
+48. Same as 47, just use a bigger n.
