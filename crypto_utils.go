@@ -143,6 +143,9 @@ func PKCSPad(txt []byte, blockSize int) []byte {
 	return txt
 }
 
+//PKCS15Pad pads the input to the given length per PKCS#1v1.5
+//(block type 02). Returns a non-nil error if the given length
+//is too short to properly pad the message.
 func PKCS15Pad(txt []byte, length int) ([]byte, error) {
 	if len(txt) > length-11 {
 		return nil, fmt.Errorf("Length too short to accommodate padding")
@@ -156,6 +159,32 @@ func PKCS15Pad(txt []byte, length int) ([]byte, error) {
 	return padded, nil
 }
 
+//RSAPKCS1Validate determines whether the byte slice is
+//properly padded for RSA encryption according to PKCS#1v1.5
+//Not a cryptographically secure check as it has a timing leak
+func RSAPKCS1Validate(eb []byte) bool {
+	if len(eb) < 11 {
+		return false
+	}
+	if eb[0] != 0x00 {
+		return false
+	}
+	if eb[1] != 0x02 {
+		return false
+	}
+	for i := 2; i < 9; i++ {
+		if eb[i] == 0x00 {
+			return false
+		}
+	}
+	for i := 9; i < len(eb); i++ {
+		if eb[i] == 0x00 {
+			return true
+		}
+	}
+	return false
+}
+
 //ScoreText computes a score for a potential plaintext.
 //The score is the angle between the vector for the plaintext's
 //character distribution and the vector for the target distribution.
@@ -167,6 +196,32 @@ func ScoreText(ptext []byte, targetDist [256]int) float64 {
 		panic("WHAT HAPPEN") // this should never happen
 	}
 	return score
+}
+
+//StripPKCS15Padding strips PKCS#1v1.5 padding (block type 02)
+//from the byte slice. Returns a non-nil error if the block
+//is not validly padded.
+func StripPKCS15Padding(eb []byte) ([]byte, error) {
+	if len(eb) < 11 {
+		return nil, fmt.Errorf("Block is not PKCS1.5-padded")
+	}
+	if eb[0] != 0x00 || eb[1] != 0x02 {
+		return nil, fmt.Errorf("Block is not PKCS1.5-padded")
+	}
+	for i := 2; i < 9; i++ {
+		if eb[i] == 0x00 {
+			return nil, fmt.Errorf("Block is not PKCS1.5-padded")
+		}
+	}
+	for i := 9; i < len(eb)-1; i++ {
+		if eb[i] == 0x00 {
+			return eb[i+1:], nil
+		}
+	}
+	if eb[len(eb)-1] == 0x00 {
+		return []byte{}, nil
+	}
+	return nil, fmt.Errorf("Block is not PKCS1.5-padded")
 }
 
 //StripPKCS7Padding strips the PKCS#7 padding from

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"math/bits"
 
@@ -136,4 +137,19 @@ func HMACSHA1(secret, msg []byte) []byte {
 	m := SHA1Hash(append(iKey, msg...))
 	return SHA1Hash(append(oKey, m...))
 
+}
+
+//AESCBCMAC computes an AES-128-CBC MAC for the given message
+//with the given secret key and iv
+func AESCBCMAC(msg, iv, key []byte) []byte {
+	padded := PKCSPad(msg, 16)
+	c := EncryptAESCBC(padded, key, iv)
+	return c[len(c)-16:]
+}
+
+//VerifyAESCBCMAC verifies an AES-128-CBC MAC
+//for the messsage with given iv and secret key
+func VerifyAESCBCMAC(mac, msg, iv, key []byte) bool {
+	trueMac := AESCBCMAC(msg, iv, key)
+	return bytes.Equal(mac, trueMac)
 }

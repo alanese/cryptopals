@@ -48,5 +48,6 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 44. Find the private key with `C44FindKey` in `set_6.go`
 45. Generate a magic signature for `g cong 1  (mod p)` with `C45MagicSignature` in `set_6.go`
 46. Parity oracle in `C46RSAParityOracle` (true if odd, false if even), parity oracle attack in `C46RSAParityAttack`, both in `set_6.go`.
-47. Attack in `BleichenbacherAttack`, currently in `main.go`. Go's syntax for bignums did not help with this one.
+47. Attack in `BleichenbacherAttack` in `bleichenbacher.go`. Go's syntax for bignums did not help with this one.
 48. Same as 47, just use a bigger n.
+49. Forge the first message with `C49ForgeMessage` in `set_7.go`. The second part is not currently implemented, and may not be possible if the attacker can't get MACs of chosen invalid messages
