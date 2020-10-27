@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math/bits"
 
@@ -145,6 +146,17 @@ func AESCBCMAC(msg, iv, key []byte) []byte {
 	padded := PKCSPad(msg, 16)
 	c := EncryptAESCBC(padded, key, iv)
 	return c[len(c)-16:]
+}
+
+//AESCBCMACNoPad computes an AES-128-CBC MAC for the given message
+//without padding it. Returns a non-nil error if the message length
+//is not a multiple of 16 bytes.
+func AESCBCMACNoPad(msg, iv, key []byte) ([]byte, error) {
+	if len(msg)%16 != 0 {
+		return nil, fmt.Errorf("Msg length not a multiple of block size")
+	}
+	c := EncryptAESCBC(msg, key, iv)
+	return c[len(c)-16:], nil
 }
 
 //VerifyAESCBCMAC verifies an AES-128-CBC MAC

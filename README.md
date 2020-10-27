@@ -51,3 +51,4 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 47. Attack in `BleichenbacherAttack` in `bleichenbacher.go`. Go's syntax for bignums did not help with this one.
 48. Same as 47, just use a bigger n.
 49. Forge the first message with `C49ForgeMessage` in `set_7.go`. The second part is not currently implemented, and may not be possible if the attacker can't get MACs of chosen invalid messages
+50. `C50ForgeMsg`, currently in `main.go`.
