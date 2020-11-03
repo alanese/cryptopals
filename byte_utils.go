@@ -2,11 +2,23 @@ package main
 
 import (
 	"bytes"
+	"compress/flate"
 	"encoding/base64"
 	"encoding/hex"
 	"io/ioutil"
 	"math/rand"
 )
+
+//AllBytesPrintable checks whether all bytes in the slice
+//are in the ASCII printable range (0x20-0x7E)
+func AllBytesPrintable(b []byte) bool {
+	for _, v := range b {
+		if v < 0x20 || v > 0x7E {
+			return false
+		}
+	}
+	return true
+}
 
 //AsBytes32 converts a uint32 into a slice of
 //its 4 bytes in big-endian order
@@ -30,7 +42,7 @@ func AsBytes64(x uint64) []byte {
 	return b
 }
 
-//FromBytes32 converts a aslice of bytes into
+//FromBytes32 converts a slice of bytes into
 //its equivalent (big-endian) uint32. If the
 //slice is more than 4 bytes, the last four will
 //effectively be used
@@ -57,6 +69,16 @@ func Chunkify(b []byte, n int) [][]byte {
 	}
 	return chunks
 
+}
+
+//CompressDEFLATE compresses the byte slice with the DEFLATE
+//algorithm
+func CompressDEFLATE(s []byte) []byte {
+	b := bytes.NewBuffer([]byte{})
+	w, _ := flate.NewWriter(b, flate.DefaultCompression)
+	w.Write(s)
+	w.Flush()
+	return b.Bytes()
 }
 
 //ContainsDuplicates checks whether a slice of byte slices
@@ -102,6 +124,20 @@ func EveryNth(b []byte, start, step int) []byte {
 	return tmp
 }
 
+//FindDuplicate returns the indices of a pair of duplicate
+//entries in a slice of byte slices. Returns -1, -1 if no
+//duplicate is found
+func FindDuplicate(b [][]byte) (int, int) {
+	for i := 0; i < len(b)-1; i++ {
+		for j := i + 1; j < len(b); j++ {
+			if bytes.Equal(b[i], b[j]) {
+				return i, j
+			}
+		}
+	}
+	return -1, -1
+}
+
 //GenerateRandomByteSlice generates a random slice
 //of bytes of the given length
 func GenerateRandomByteSlice(length int) []byte {
@@ -122,6 +158,38 @@ func HexToB64(src []byte) ([]byte, error) {
 	dst := make([]byte, base64.StdEncoding.EncodedLen(len(tmp)))
 	base64.StdEncoding.Encode(dst, tmp)
 	return dst, nil
+}
+
+//IncrementByteSlice replaces b with the next (lexicographically)
+//byte slice where each byte is between lower and upper, inclusive.
+//If b is the last such slice (i.e. each byte equals upper), it will
+//wrap around to the slice where each byte equals lower. Returns the updated
+//slice (but modifies b in-place)
+func IncrementByteSlice(lower, upper byte, b []byte) []byte {
+	for i := len(b) - 1; i >= 0; i-- {
+		b[i]++
+		if b[i] > upper || b[i] == 0 {
+			b[i] = lower
+		} else {
+			return b
+		}
+	}
+	return b
+}
+
+//IncrementPrintableBytes replaces b with the next slice of bytes
+//(lexicographically) composed entirely of printable bytes.
+func IncrementPrintableBytes(b []byte) {
+	i := len(b) - 1
+	for i >= 0 {
+		b[i]++
+		if b[i] > 126 {
+			b[i] = 32
+			i--
+		} else {
+			break
+		}
+	}
 }
 
 //NCopiesOfN returns a byte slice composed of n copies of

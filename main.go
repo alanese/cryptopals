@@ -1,74 +1,84 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"time"
+
+	"golang.org/x/crypto/twofish"
 )
 
-//IncrementPrintableBytes replaces b with the next slice of bytes
-//(lexicographically) composed entirely of printable bytes.
-func IncrementPrintableBytes(b []byte) {
-	i := len(b) - 1
-	for i >= 0 {
-		b[i]++
-		if b[i] > 126 {
-			b[i] = 32
-			i--
-		} else {
-			break
-		}
+func C52MD(M, H []byte) []byte {
+	key := PadLeft(H, 0x00, 16)
+	msg := M
+	for i := 0; i*16 < len(msg); i++ {
+		longKey := EncryptAESECB(msg[16*i:16*(i+1)], key)
+		key = PadLeft(longKey[14:], 0x00, 16)
 	}
+	return key[14:]
+}
+func C52TwofishMD(M, H []byte) []byte {
+	key := PadLeft(H, 0x00, 16)
+	block := make([]byte, 16)
+	copy(block, M[:16])
+	for i := 0; i*16 < len(M); i++ {
+		c, _ := twofish.NewCipher(key)
+		c.Encrypt(block, M[i*16:(i+1)*16])
+		key = PadLeft(block[14:], 0x00, 16)
+	}
+	return key[14:]
 }
 
-//AllBytesPrintable checks whether all bytes in the slice
-//are in the ASCII printable range (0x20-0x7E)
-func AllBytesPrintable(b []byte) bool {
-	for _, v := range b {
-		if v < 0x20 || v > 0x7E {
-			return false
-		}
-	}
-	return true
-}
-
-//C50ForgeMsg solves challenge 50. Creating a new string with the
-//same CBC-MAC as the given and with a chosen prefix is fairly simple;
-//the bulk of the code is devoted to finding such a string
-//which is valid JavaScript.
-func C50ForgeMsg() []byte {
-	origMsg := []byte("alert('MZA who was that?');\n")
-	iv := make([]byte, 16)
-	key := []byte("YELLOW SUBMARINE")
-	mac := AESCBCMAC(origMsg, iv, key)
-	fmt.Printf("%X\n", mac)
-
-	var newMessage []byte
-	origFirstBlock := origMsg[:16]
-	origRemainder := origMsg[16:]
-	newMsgFront := []byte("alert('Ayo, the Wu is back!');//")
-	rPad := []byte("                ")
+func C52GenerateCollision(initState []byte) ([]byte, []byte) {
 	for {
-		fmt.Printf("Testing %X\n", rPad)
-		testMsg := append(newMsgFront, rPad...)
-		testMAC, _ := AESCBCMACNoPad(testMsg, iv, key)
-		mangledBlock, _ := XorBufs(origFirstBlock, testMAC)
-		if AllBytesPrintable(mangledBlock) {
-			newMessage = append(newMsgFront, rPad...)
-			newMessage = append(newMessage, mangledBlock...)
-			newMessage = append(newMessage, origRemainder...)
-			break
+		i1 := GenerateRandomByteSlice(16)
+		i2 := GenerateRandomByteSlice(16)
+		h1 := C52MD(i1, initState)
+		h2 := C52MD(i2, initState)
+		if bytes.Equal(h1, h2) {
+			return i1, i2
 		}
-		IncrementPrintableBytes(rPad)
 	}
+}
 
-	newMAC := AESCBCMAC(newMessage, iv, key)
-	fmt.Printf("%X\n", newMAC)
-	fmt.Println(string(newMessage))
-	return newMessage
+func C52GenerateManyCollisions(initState []byte, n int) [][]byte {
+	state := initState
+	pairs := make([][][]byte, n)
+	for i := 0; i < n; i++ {
+		i1, i2 := C52GenerateCollision(state)
+		state = C52MD(i1, state)
+		pairs[i] = [][]byte{i1, i2}
+	}
+	fmt.Printf("%x\n", pairs)
+
+	colliders := make([][]byte, 1<<n)
+	for i := 0; i < 1<<n; i++ {
+		tmp := make([]byte, 0)
+		for j := 0; j < n; j++ {
+			tmp = append(tmp, pairs[j][(i>>j)&1]...)
+		}
+		colliders[i] = tmp
+	}
+	return colliders
 }
 
 func main() {
 	rand.Seed(time.Now().Unix())
-	C50ForgeMsg()
+	//C50ForgeMsg()
+	initState := GenerateRandomByteSlice(2)
+
+	colls := C52GenerateManyCollisions(initState, 8)
+	tfHashes := make([][]byte, len(colls))
+	for i, v := range colls {
+		//fmt.Printf("I: %x\nH: %x\n", v, C52MD(v, initState))
+		tfHashes[i] = C52TwofishMD(v, initState)
+	}
+	c1, c2 := FindDuplicate(tfHashes)
+	if c1 >= 0 {
+		fmt.Printf("I1: %x\nI2: %x\nH1: %x\nH2: %x\n", colls[c1], colls[c2], tfHashes[c1], tfHashes[c2])
+	} else {
+		fmt.Printf("No collision found\n")
+	}
+
 }
