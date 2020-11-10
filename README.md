@@ -54,4 +54,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 50. `C50ForgeMsg` in `set_7.go`
 51. Stream cipher version implemented in `C51FindCookie` in `set_7.go`
 52. Generate `2**n` collisions (using an AES-based hash) with `C52GenerateManyCollisions` in `set_7.go`. Concatenated-hash attack verified using a Twofish-based hash for the second.
-53. `C53ForgeMessage`, currently in `main.go`
+53. `C53ForgeMessage` in `set_7.go`
+54. Build a collision tree of the specified depth with `C54CollisionTree`, and generate a preimage with `C54GeneratePreimage`, both currently in `main.go`.
