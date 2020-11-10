@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"strconv"
+
+	"golang.org/x/crypto/twofish"
 )
 
 //C49ForgeMessage forges a message transmitting
@@ -130,4 +133,68 @@ func C51FindCookie() []byte {
 		knownBytes = append(knownBytes, bestByte)
 		fmt.Println(string(knownBytes))
 	}
+}
+
+//C52MD implements a simplified MD iterated hash using AES-ECB
+//with a digest size of 16 bits
+func C52MD(M, H []byte) []byte {
+	key := PadLeft(H, 0x00, 16)
+	msg := M
+	for i := 0; i*16 < len(msg); i++ {
+		longKey := EncryptAESECB(msg[16*i:16*(i+1)], key)
+		key = PadLeft(longKey[14:], 0x00, 16)
+	}
+	return key[14:]
+}
+
+//C52TwofishMD implements a simplified MD iterated hash using
+//Twofish with a digest size of 16 bits
+func C52TwofishMD(M, H []byte) []byte {
+	key := PadLeft(H, 0x00, 16)
+	block := make([]byte, 16)
+	copy(block, M[:16])
+	for i := 0; i*16 < len(M); i++ {
+		c, _ := twofish.NewCipher(key)
+		c.Encrypt(block, M[i*16:(i+1)*16])
+		key = PadLeft(block[14:], 0x00, 16)
+	}
+	return key[14:]
+}
+
+//C52GenerateCollision finds two 16-byte slices which produce the
+//same hash under C52MD with the given initial state (which should be
+//two bytes)
+func C52GenerateCollision(initState []byte) ([]byte, []byte) {
+	for {
+		i1 := GenerateRandomByteSlice(16)
+		i2 := GenerateRandomByteSlice(16)
+		h1 := C52MD(i1, initState)
+		h2 := C52MD(i2, initState)
+		if bytes.Equal(h1, h2) {
+			return i1, i2
+		}
+	}
+}
+
+//C52GenerateManyCollisions generates 2**n byte slices which all
+//collide under C52MD with the given initial state.
+func C52GenerateManyCollisions(initState []byte, n int) [][]byte {
+	state := initState
+	pairs := make([][][]byte, n)
+	for i := 0; i < n; i++ {
+		i1, i2 := C52GenerateCollision(state)
+		state = C52MD(i1, state)
+		pairs[i] = [][]byte{i1, i2}
+	}
+	fmt.Printf("%x\n", pairs)
+
+	colliders := make([][]byte, 1<<n)
+	for i := 0; i < 1<<n; i++ {
+		tmp := make([]byte, 0)
+		for j := 0; j < n; j++ {
+			tmp = append(tmp, pairs[j][(i>>j)&1]...)
+		}
+		colliders[i] = tmp
+	}
+	return colliders
 }

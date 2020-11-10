@@ -5,80 +5,85 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
-
-	"golang.org/x/crypto/twofish"
 )
 
-func C52MD(M, H []byte) []byte {
-	key := PadLeft(H, 0x00, 16)
-	msg := M
-	for i := 0; i*16 < len(msg); i++ {
-		longKey := EncryptAESECB(msg[16*i:16*(i+1)], key)
-		key = PadLeft(longKey[14:], 0x00, 16)
-	}
-	return key[14:]
-}
-func C52TwofishMD(M, H []byte) []byte {
-	key := PadLeft(H, 0x00, 16)
-	block := make([]byte, 16)
-	copy(block, M[:16])
-	for i := 0; i*16 < len(M); i++ {
-		c, _ := twofish.NewCipher(key)
-		c.Encrypt(block, M[i*16:(i+1)*16])
-		key = PadLeft(block[14:], 0x00, 16)
-	}
-	return key[14:]
-}
-
-func C52GenerateCollision(initState []byte) ([]byte, []byte) {
+//C53GenerateCollisionPair generates a one-block message and a message of the given
+//length in blocks which collide under C52 with the given initial state
+func C53GenerateCollisionPair(initState []byte, longBlocks int) ([]byte, []byte) {
+	longMsg := GenerateRandomByteSlice(longBlocks * 16)
+	longHash := C52MD(longMsg, initState)
 	for {
-		i1 := GenerateRandomByteSlice(16)
-		i2 := GenerateRandomByteSlice(16)
-		h1 := C52MD(i1, initState)
-		h2 := C52MD(i2, initState)
-		if bytes.Equal(h1, h2) {
-			return i1, i2
+		shortMsg := GenerateRandomByteSlice(16)
+		shortHash := C52MD(shortMsg, initState)
+		if bytes.Equal(shortHash, longHash) {
+			return shortMsg, longMsg
 		}
 	}
 }
 
-func C52GenerateManyCollisions(initState []byte, n int) [][]byte {
-	state := initState
-	pairs := make([][][]byte, n)
-	for i := 0; i < n; i++ {
-		i1, i2 := C52GenerateCollision(state)
-		state = C52MD(i1, state)
-		pairs[i] = [][]byte{i1, i2}
+//C53GenerateExpandableMessage generates collisions under C52MD for use
+//in an expandable-message attack
+func C53GenerateExpandableMessage(initState []byte, k int) (shortMsgs, longMsgs [][]byte, state []byte) {
+	state = initState
+	shortMsgs = make([][]byte, k)
+	longMsgs = make([][]byte, k)
+	for i := 0; i < k; i++ {
+		short, long := C53GenerateCollisionPair(state, (1<<(k-i-1))+1)
+		shortMsgs[i] = short
+		longMsgs[i] = long
+		state = C52MD(short, state)
 	}
-	fmt.Printf("%x\n", pairs)
+	return
 
-	colliders := make([][]byte, 1<<n)
-	for i := 0; i < 1<<n; i++ {
-		tmp := make([]byte, 0)
-		for j := 0; j < n; j++ {
-			tmp = append(tmp, pairs[j][(i>>j)&1]...)
-		}
-		colliders[i] = tmp
+}
+
+//C53ForgeMessage forges a message of the appropriate length whose
+//hash (under the simplified MD hash in C52MD) matches that of the
+//given message. 2**k should be the length of the message in blocks
+func C53ForgeMessage(msg, initState []byte, k int) []byte {
+	intermediateStates := make(map[string]int)
+	state := initState
+	for i := 0; i*16 < len(msg); i++ {
+		state = C52MD(msg[i*16:(i+1)*16], state)
+		intermediateStates[fmt.Sprintf("%x", state)] = i + 1
 	}
-	return colliders
+
+	shortMsgs, longMsgs, expandableState := C53GenerateExpandableMessage(initState, k)
+	var bridge []byte
+	var bridgeIndex int
+	ok := false
+	for !ok || bridgeIndex < k {
+		bridge = GenerateRandomByteSlice(16)
+		bridgeState := C52MD(bridge, expandableState)
+		bridgeIndex, ok = intermediateStates[fmt.Sprintf("%x", bridgeState)]
+	}
+
+	msgTail := append(bridge, msg[16*bridgeIndex:]...)
+	msgHead := make([]byte, 0)
+	prefixLength := len(msg) - len(msgTail)
+
+	prefixBuilder := (prefixLength / 16) - k
+	for i := 0; i < k; i++ {
+		if (prefixBuilder>>(k-i-1))&1 > 0 {
+			msgHead = append(msgHead, longMsgs[i]...)
+		} else {
+			msgHead = append(msgHead, shortMsgs[i]...)
+		}
+	}
+
+	return append(msgHead, msgTail...)
 }
 
 func main() {
 	rand.Seed(time.Now().Unix())
 	//C50ForgeMsg()
+	k := 4
 	initState := GenerateRandomByteSlice(2)
-
-	colls := C52GenerateManyCollisions(initState, 8)
-	tfHashes := make([][]byte, len(colls))
-	for i, v := range colls {
-		//fmt.Printf("I: %x\nH: %x\n", v, C52MD(v, initState))
-		tfHashes[i] = C52TwofishMD(v, initState)
-	}
-	c1, c2 := FindDuplicate(tfHashes)
-	if c1 >= 0 {
-		fmt.Printf("I1: %x\nI2: %x\nH1: %x\nH2: %x\n", colls[c1], colls[c2], tfHashes[c1], tfHashes[c2])
-	} else {
-		fmt.Printf("No collision found\n")
-	}
+	trueMsg := GenerateRandomByteSlice(16 * (1 << k))
+	forged := C53ForgeMessage(trueMsg, initState, k)
+	fmt.Printf("Original %x\n  Forged %x\n", trueMsg, forged)
+	origHash := C52MD(trueMsg, initState)
+	forgedHash := C52MD(forged, initState)
+	fmt.Printf("Orig hash %x\nForg hash %x\n", origHash, forgedHash)
 
 }
