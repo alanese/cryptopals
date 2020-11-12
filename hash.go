@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"math/bits"
 
 	"golang.org/x/crypto/md4"
@@ -109,8 +108,42 @@ func SHA1MAC(msg, key []byte) []byte {
 //MD4Hash computes the MD4 hash of the given message
 func MD4Hash(msg []byte) []byte {
 	m := md4.New()
-	io.WriteString(m, string(msg))
+	m.Write(msg)
+	//io.WriteString(m, string(msg))
 	return m.Sum(nil)
+}
+
+//MD4F implements the F function for MD4
+func MD4F(x, y, z uint32) uint32 {
+	return (x & y) | (^x & z)
+}
+
+//MD4G implements the G function in MD4
+func MD4G(x, y, z uint32) uint32 {
+	return (x & y) | (x & z) | (y & z)
+}
+
+//MD4H implements the H function in MD4
+func MD4H(x, y, z uint32) uint32 {
+	return x ^ y ^ z
+}
+
+//MD4Phi0 implements MD4's phi_0 step function
+func MD4Phi0(a, b, c, d, mk uint32, s int) uint32 {
+	tmp := a + MD4F(b, c, d) + mk
+	return bits.RotateLeft32(tmp, s)
+}
+
+//MD4Phi1 implements MD4's phi_1 step function
+func MD4Phi1(a, b, c, d, mk uint32, s int) uint32 {
+	tmp := a + MD4G(b, c, d) + mk + 0x5a827999
+	return bits.RotateLeft32(tmp, s)
+}
+
+//MD4Phi2 implements MD4's phi_2 step function
+func MD4Phi2(a, b, c, d, mk uint32, s int) uint32 {
+	tmp := a + MD4H(b, c, d) + mk + 0x6ed9eba1
+	return bits.RotateLeft32(tmp, s)
 }
 
 //HMACSHA1 computes an SHA-1 based HMAC with the given

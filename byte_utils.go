@@ -31,6 +31,17 @@ func AsBytes32(x uint32) []byte {
 	return b
 }
 
+//AsBytes32LE converts a uint32 into a slice
+//of its 4 bytes in little-endian order
+func AsBytes32LE(x uint32) []byte {
+	b := make([]byte, 4)
+	for i := 0; i < 4; i++ {
+		b[i] = byte(x & 0x000000FF)
+		x >>= 8
+	}
+	return b
+}
+
 //AsBytes64 converts a uint64 into a slice of
 //its 8 bytes in big-endian order
 func AsBytes64(x uint64) []byte {
