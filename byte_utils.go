@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"compress/flate"
+	cr "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"io/ioutil"
+	"math/big"
 	"math/rand"
 )
 
@@ -159,6 +161,18 @@ func GenerateRandomByteSlice(length int) []byte {
 	return s
 }
 
+//GenerateSecureRandomByteSlice generates a slice of
+//random bytes with a cryptographically-secure PRNG
+func GenerateSecureRandomByteSlice(length int) []byte {
+	byteCap := big.NewInt(256)
+	s := make([]byte, length)
+	for i := range s {
+		tmp, _ := cr.Int(cr.Reader, byteCap)
+		s[i] = byte(tmp.Int64())
+	}
+	return s
+}
+
 //HexToB64 converts a byte slice of hex values to base64
 func HexToB64(src []byte) ([]byte, error) {
 	tmp := make([]byte, hex.DecodedLen(len(src)))
@@ -248,4 +262,33 @@ func LinesFromFile(fname string) ([][]byte, error) {
 //are 1 and the rest are 0.
 func RightOnes(n int) uint32 {
 	return (uint32(1) << n) - 1
+}
+
+//GetBit returns the value of the nth bit
+//of a uint32 where bit 0 is the LSB and bit 31
+//is the MSB
+func GetBit(x uint32, n int) int {
+	return int((x >> n) & 1)
+}
+
+//BitsEqual checks if the nth bit of x1 and
+//the nth bit of x2 are equal
+func BitsEqual(x1, x2 uint32, n int) bool {
+	return ((x1^x2)>>n)&1 == 0
+}
+
+//ClearBit returns a copy of x with the nth bit cleared
+func ClearBit(x uint32, n int) uint32 {
+	return x &^ (1 << n)
+}
+
+//SetBit returns a copy of x with the nth bit set
+func SetBit(x uint32, n int) uint32 {
+	return x | (1 << n)
+}
+
+//MatchBit returns a copy of tgt with its nth bit set
+//to the nth bit of src
+func MatchBit(tgt, src uint32, n int) uint32 {
+	return tgt ^ ((tgt ^ src) & (1 << n))
 }

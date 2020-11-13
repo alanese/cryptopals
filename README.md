@@ -56,4 +56,5 @@ Solutions to the Cryptopals challenges (https://cryptopals.com/) written in Go, 
 52. Generate `2**n` collisions (using an AES-based hash) with `C52GenerateManyCollisions` in `set_7.go`. Concatenated-hash attack verified using a Twofish-based hash for the second.
 53. `C53ForgeMessage` in `set_7.go`
 54. Build a collision tree of the specified depth with `C54CollisionTree`, and generate a preimage with `C54GeneratePreimage`, both in `set_7.go`.
-55. Generate a colliding pair with `C55FindCollision`, currently in `main.go`
+55. Generate a colliding pair with `C55FindCollision` in `md4_collisions.go`
+56. `C56GuessCookie`, currently in `main.go`. Takes ~30sec per byte on my machine. The main bottleneck is in setting up large numbers of new RC4 ciphers (roughly 45% of the runtime is spent in the `rc4.NewCipher` function), so there's not a lot I can do to improve it.

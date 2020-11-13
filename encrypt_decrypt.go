@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rc4"
 )
 
 //BreakSingleByteXor attempts to decrypt a byte slice
@@ -141,6 +142,15 @@ func EncryptMT19937Stream(ptext []byte, key uint32) []byte {
 
 	}
 
+	return ctext
+}
+
+//EncryptRC4 encrypts the given plaintext under RC4
+//with the given key
+func EncryptRC4(ptext, key []byte) []byte {
+	c, _ := rc4.NewCipher(key)
+	ctext := make([]byte, len(ptext))
+	c.XORKeyStream(ctext, ptext)
 	return ctext
 }
 
